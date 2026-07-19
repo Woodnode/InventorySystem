@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
+             x:Class="InventoryMobile.Views.ScanPage"
+             x:DataType="viewmodels:ScanViewModel"
+             Title="Scanner">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <zxing:CameraBarcodeReaderView
+            Grid.Row="0"
+            x:Name="BarcodeView"
+            IsVisible="{Binding IsWindowsUnsupported, Converter={StaticResource InvertedBoolConverter}}"
+            IsDetecting="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}"
+            BarcodesDetected="OnBarcodesDetected" />
+
+        <Label Grid.Row="0"
+               Text="Le scan par caméra n'est pas disponible sur Windows."
+               IsVisible="{Binding IsWindowsUnsupported}"
+               HorizontalOptions="Center"
+               VerticalOptions="Center" />
+
+        <VerticalStackLayout Grid.Row="1" Padding="16" Spacing="8">
+            <Label Text="{Binding ErrorMessage}"
+                   TextColor="Red"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentPage>
