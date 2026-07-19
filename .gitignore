@@ -1,0 +1,39 @@
+# ---------- .NET ----------
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+artifacts/
+
+# EF Core (garder les migrations, ignorer le reste)
+# (rien à ignorer de spécifique ici)
+
+# ---------- Node / React ----------
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+
+# ---------- Environnement / secrets ----------
+.env
+.env.*
+!.env.example
+appsettings.*.Local.json
+*.pfx
+
+# ---------- MAUI / Mobile ----------
+*.binlog
+*.aab
+*.apk
+*.ipa
+
+# ---------- OS / IDE ----------
+.DS_Store
+Thumbs.db
+*.swp
+.idea/

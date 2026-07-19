@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             x:Class="InventoryMobile.Views.MovementPage"
+             x:DataType="viewmodels:MovementViewModel"
+             Title="Mouvement de stock">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+
+            <Label Text="{Binding Product.Name}" FontAttributes="Bold" FontSize="20" />
+            <Label Text="{Binding Product.Sku}" TextColor="Gray" />
+            <Label Text="{Binding Product.Quantity, StringFormat='Stock total actuel : {0}'}" />
+
+            <BoxView HeightRequest="1" Color="LightGray" Margin="0,8" />
+
+            <Label Text="Type de mouvement" FontAttributes="Bold" />
+            <Picker ItemsSource="{Binding AvailableTypes}"
+                    SelectedItem="{Binding SelectedType}"
+                    ItemDisplayBinding="{Binding ., Converter={StaticResource MovementTypeLabelConverter}}" />
+
+            <Label Text="Entrepôt source" FontAttributes="Bold" />
+            <Picker ItemsSource="{Binding Warehouses}"
+                    SelectedItem="{Binding SelectedWarehouse}"
+                    ItemDisplayBinding="{Binding Name}" />
+
+            <Label Text="Entrepôt de destination"
+                   FontAttributes="Bold"
+                   IsVisible="{Binding IsTransfer}" />
+            <Picker ItemsSource="{Binding Warehouses}"
+                    SelectedItem="{Binding SelectedToWarehouse}"
+                    ItemDisplayBinding="{Binding Name}"
+                    IsVisible="{Binding IsTransfer}" />
+
+            <Label Text="Quantité" FontAttributes="Bold" />
+            <Entry Text="{Binding Quantity}" Keyboard="Numeric" />
+
+            <Label Text="Motif (optionnel)" FontAttributes="Bold" />
+            <Entry Text="{Binding Reason}" Placeholder="Ex. réception fournisseur, casse, inventaire..." />
+
+            <Label Text="{Binding ErrorMessage}"
+                   TextColor="Red"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+            <Label Text="{Binding SuccessMessage}"
+                   TextColor="Green"
+                   IsVisible="{Binding SuccessMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+            <Button Text="Enregistrer le mouvement"
+                    Command="{Binding RecordCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

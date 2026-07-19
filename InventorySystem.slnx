@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Backend/">
+    <Project Path="src/Backend/InventorySystem.Api/InventorySystem.Api.csproj" />
+    <Project Path="src/Backend/InventorySystem.Application/InventorySystem.Application.csproj" />
+    <Project Path="src/Backend/InventorySystem.Domain/InventorySystem.Domain.csproj" />
+    <Project Path="src/Backend/InventorySystem.Infrastructure/InventorySystem.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Mobile/">
+    <Project Path="src/Mobile/InventoryMobile/InventoryMobile.csproj" />
+    <Project Path="src/Mobile/InventoryMobile.Application/InventoryMobile.Application.csproj" />
+    <Project Path="src/Mobile/InventoryMobile.Domain/InventoryMobile.Domain.csproj" />
+    <Project Path="src/Mobile/InventoryMobile.Infrastructure/InventoryMobile.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Backend.IntegrationTests/">
+    <Project Path="tests/Backend.IntegrationTests/InventorySystem.Backend.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Backend.UnitTests/">
+    <Project Path="tests/Backend.UnitTests/InventorySystem.Backend.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Mobile.UnitTests/">
+    <Project Path="tests/Mobile.UnitTests/InventoryMobile.Mobile.UnitTests.csproj" />
+  </Folder>
+</Solution>

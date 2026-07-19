@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             xmlns:api="clr-namespace:InventoryMobile.Infrastructure.Api;assembly=InventoryMobile.Infrastructure"
+             x:Class="InventoryMobile.Views.ProductsPage"
+             x:DataType="viewmodels:ProductsViewModel"
+             Title="Produits">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Scanner" Command="{Binding ScanCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+            <Label Grid.Column="0"
+                   Text="{Binding DisplayName, StringFormat='Bonjour, {0}'}"
+                   FontSize="18"
+                   VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Déconnexion" Command="{Binding LogoutCommand}" />
+        </Grid>
+
+        <Label Grid.Row="1"
+               Text="{Binding PendingSyncCount, StringFormat='{0} mouvement(s) en attente de synchronisation.'}"
+               TextColor="DarkOrange"
+               FontSize="13"
+               IsVisible="{Binding PendingSyncCount, Converter={StaticResource IntGreaterThanZeroConverter}}"
+               Margin="0,0,0,8" />
+
+        <Label Grid.Row="2"
+               Text="{Binding ErrorMessage}"
+               TextColor="Red"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}"
+               Margin="0,0,0,8" />
+
+        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsBusy}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Products}">
+                <CollectionView.EmptyView>
+                    <Label Text="Aucun produit." HorizontalOptions="Center" VerticalOptions="Center" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="api:ProductResponse">
+                        <Grid Padding="12" ColumnDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ProductsViewModel}}, Path=SelectProductCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+
+                            <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                <Label Text="{Binding Name}" FontAttributes="Bold" />
+                                <Label Text="{Binding Sku}" FontSize="12" TextColor="Gray" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="End">
+                                <Label Text="{Binding Quantity}" FontAttributes="Bold" HorizontalTextAlignment="End" />
+                                <Label Text="Stock bas"
+                                       FontSize="12"
+                                       TextColor="OrangeRed"
+                                       IsVisible="{Binding IsLowOnStock}"
+                                       HorizontalTextAlignment="End" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+
+</ContentPage>
