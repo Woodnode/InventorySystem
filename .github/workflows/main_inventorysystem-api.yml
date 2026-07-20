@@ -24,10 +24,13 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Build with dotnet
-        run: dotnet build --configuration Release
+        # Cible explicitement le projet API : le repo contient aussi le frontend React et
+        # les projets .NET MAUI (mobile), qui nécessitent des workloads non installés sur ce
+        # runner et n'ont rien à faire dans le déploiement de l'API.
+        run: dotnet build src/Backend/InventorySystem.Api/InventorySystem.Api.csproj --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: dotnet publish src/Backend/InventorySystem.Api/InventorySystem.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
