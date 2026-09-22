@@ -17,6 +17,12 @@ public sealed class GetStockByProductQueryHandler
     public async Task<IReadOnlyList<StockDto>> Handle(GetStockByProductQuery request, CancellationToken cancellationToken)
     {
         var stocks = await _stocks.ListByProductAsync(request.ProductId, cancellationToken);
-        return stocks.Select(s => new StockDto(s.ProductId, s.WarehouseId, s.Quantity)).ToList();
+        return stocks.Select(s => new StockDto(
+            s.ProductId, s.WarehouseId, s.Quantity,
+            s.Section, s.Space, s.Pallet,
+            s.BoxesCount, s.CopiesPerBox,
+            s.EntryDate, s.ExitDate,
+            s.DistributorName, s.ReturnDate, s.Comment,
+            s.InventoryDate, s.ResponsibleName)).ToList();
     }
 }

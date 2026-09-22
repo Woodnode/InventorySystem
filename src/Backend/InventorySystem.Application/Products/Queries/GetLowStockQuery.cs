@@ -1,3 +1,4 @@
+using InventorySystem.Application.Common.Dtos;
 using InventorySystem.Application.Common.Interfaces;
 using InventorySystem.Application.Products.Dtos;
 using MediatR;
@@ -5,39 +6,45 @@ using MediatR;
 namespace InventorySystem.Application.Products.Queries;
 
 /// <summary>
-/// Cas d'usage : lister les produits dont le stock total (tous entrepôts confondus)
-/// est sous leur seuil de réappro. Agrège Product (catalogue) et Stock (quantités)
-/// en une seule requête groupée côté repository pour éviter le N+1 (plan §5, async).
+/// Produits sous seuil de réappro — paginé (agrégation SQL).
 /// </summary>
-public sealed record GetLowStockQuery : IRequest<IReadOnlyList<ProductDto>>;
+public sealed record GetLowStockQuery(int Page = 1, int PageSize = 20)
+    : IRequest<PagedResult<ProductDto>>;
 
 public sealed class GetLowStockQueryHandler
-    : IRequestHandler<GetLowStockQuery, IReadOnlyList<ProductDto>>
+    : IRequestHandler<GetLowStockQuery, PagedResult<ProductDto>>
 {
     private readonly IProductRepository _products;
-    private readonly IStockRepository _stocks;
 
-    public GetLowStockQueryHandler(IProductRepository products, IStockRepository stocks)
-    {
-        _products = products;
-        _stocks = stocks;
-    }
+    public GetLowStockQueryHandler(IProductRepository products) => _products = products;
 
-    public async Task<IReadOnlyList<ProductDto>> Handle(
+    public async Task<PagedResult<ProductDto>> Handle(
         GetLowStockQuery request, CancellationToken cancellationToken)
     {
-        var products = await _products.ListAsync(cancellationToken);
-        var totals = await _stocks.GetTotalQuantitiesAsync(products.Select(p => p.Id), cancellationToken);
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
 
-        return products
-            .Select(p =>
-            {
-                var total = totals.GetValueOrDefault(p.Id, 0);
-                return new ProductDto(
-                    p.Id, p.Sku.Value, p.Name, p.Description,
-                    total, p.LowStockThreshold, p.IsLowOnStock(total));
-            })
-            .Where(dto => dto.IsLowOnStock)
+        var (rows, totalCount) = await _products.ListLowStockPagedAsync(
+            page, pageSize, cancellationToken);
+
+        var items = rows
+            .Select(r => new ProductDto(
+                r.Product.Id,
+                r.Product.Sku.Value,
+                r.Product.Name,
+                r.Product.Description,
+                r.TotalQuantity,
+                r.Product.LowStockThreshold,
+                true,
+                r.Product.ProjectCode,
+                r.Product.Collection,
+                r.Product.VolumeNumber,
+                r.Product.ProductType,
+                r.Product.Year,
+                r.Product.WeightPerCopyLb,
+                r.Product.Company))
             .ToList();
+
+        return new PagedResult<ProductDto>(items, totalCount, page, pageSize);
     }
 }

@@ -10,4 +10,11 @@ public sealed record ProductDto(
     string? Description,
     int Quantity,
     int LowStockThreshold,
-    bool IsLowOnStock);
+    bool IsLowOnStock,
+    string? ProjectCode,
+    string? Collection,
+    string? VolumeNumber,
+    string? ProductType,
+    int? Year,
+    decimal? WeightPerCopyLb,
+    string? Company);

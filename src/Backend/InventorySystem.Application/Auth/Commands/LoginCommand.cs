@@ -1,7 +1,7 @@
 using FluentValidation;
 using InventorySystem.Application.Auth.Dtos;
+using InventorySystem.Application.Common.Exceptions;
 using InventorySystem.Application.Common.Interfaces;
-using InventorySystem.Domain.Exceptions;
 using MediatR;
 
 namespace InventorySystem.Application.Auth.Commands;
@@ -43,7 +43,7 @@ public sealed class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResu
         // Message volontairement générique : ne jamais révéler si c'est l'email ou le
         // mot de passe qui est incorrect (évite l'énumération de comptes).
         var user = await _identity.ValidateCredentialsAsync(request.Email, request.Password, cancellationToken)
-            ?? throw new DomainException("Identifiants invalides.");
+            ?? throw new AuthenticationException("Identifiants invalides.");
 
         return await AuthTokenIssuer.IssueAsync(
             _identity, _tokens, _refreshTokens, _unitOfWork, user.Id, cancellationToken, user);

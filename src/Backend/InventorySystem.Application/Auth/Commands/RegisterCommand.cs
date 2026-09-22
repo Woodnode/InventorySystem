@@ -1,7 +1,7 @@
 using FluentValidation;
 using InventorySystem.Application.Auth.Dtos;
+using InventorySystem.Application.Common.Exceptions;
 using InventorySystem.Application.Common.Interfaces;
-using InventorySystem.Domain.Exceptions;
 using MediatR;
 
 namespace InventorySystem.Application.Auth.Commands;
@@ -55,13 +55,25 @@ public sealed class RegisterCommandHandler : IRequestHandler<RegisterCommand, Au
 
     public async Task<AuthResultDto> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
-        var result = await _identity.CreateUserAsync(
-            request.Email, request.Password, request.DisplayName, request.Role, cancellationToken);
+        AuthResultDto? result = null;
 
-        if (!result.Succeeded || result.UserId is null)
-            throw new DomainException(string.Join(" | ", result.Errors));
+        // Création du compte Identity + émission du premier refresh token dans la même
+        // transaction DB : si l'émission du token échoue, le compte n'est pas non plus
+        // persisté, au lieu de laisser un utilisateur orphelin sans session (voir AUDIT.md
+        // B-S1). UserManager/RoleManager utilisent le même AppDbContext scoped que
+        // IUnitOfWork, donc leurs SaveChanges internes participent bien à cette transaction.
+        await _unitOfWork.ExecuteInTransactionAsync(async ct =>
+        {
+            var identityResult = await _identity.CreateUserAsync(
+                request.Email, request.Password, request.DisplayName, request.Role, ct);
 
-        return await AuthTokenIssuer.IssueAsync(
-            _identity, _tokens, _refreshTokens, _unitOfWork, result.UserId.Value, cancellationToken);
+            if (!identityResult.Succeeded || identityResult.UserId is null)
+                throw new IdentityOperationException(string.Join(" | ", identityResult.Errors));
+
+            result = await AuthTokenIssuer.IssueAsync(
+                _identity, _tokens, _refreshTokens, _unitOfWork, identityResult.UserId.Value, ct);
+        }, cancellationToken);
+
+        return result!;
     }
 }

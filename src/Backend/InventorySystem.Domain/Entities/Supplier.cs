@@ -9,6 +9,7 @@ public sealed class Supplier : BaseEntity
     public string Name { get; private set; } = string.Empty;
     public string? ContactEmail { get; private set; }
     public string? Phone { get; private set; }
+    public bool IsActive { get; private set; } = true;
 
     private Supplier() { }
 
@@ -26,4 +27,20 @@ public sealed class Supplier : BaseEntity
 
         return new Supplier(name, contactEmail, phone);
     }
+
+    public void Update(string name, string? contactEmail, string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new DomainException("Le nom du fournisseur est obligatoire.");
+
+        Name = name;
+        ContactEmail = contactEmail;
+        Phone = phone;
+    }
+
+    /// <summary>Remplace la suppression : un fournisseur référencé par des produits existants
+    /// ne doit jamais disparaître (même raisonnement que Warehouse — voir ré-audit F-4).</summary>
+    public void Deactivate() => IsActive = false;
+
+    public void Activate() => IsActive = true;
 }
