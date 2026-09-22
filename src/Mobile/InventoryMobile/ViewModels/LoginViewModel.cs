@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using InventoryMobile.Application.Auth;
+using InventoryMobile.Application.Navigation;
+using InventoryMobile.Application.Notifications;
 using InventoryMobile.Services;
 using Refit;
 
@@ -10,10 +12,17 @@ namespace InventoryMobile.ViewModels;
 public sealed partial class LoginViewModel : ObservableObject
 {
     private readonly IAuthService _authService;
+    private readonly INavigationService _navigation;
+    private readonly IStockAlertSessionListener _stockAlertSessionListener;
 
-    public LoginViewModel(IAuthService authService)
+    public LoginViewModel(
+        IAuthService authService,
+        INavigationService navigation,
+        IStockAlertSessionListener stockAlertSessionListener)
     {
         _authService = authService;
+        _navigation = navigation;
+        _stockAlertSessionListener = stockAlertSessionListener;
     }
 
     [ObservableProperty]
@@ -28,11 +37,29 @@ public sealed partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    /// <summary>Restaure une session déjà persistée (SecureStorage) au démarrage de l'app.</summary>
-    public async Task<bool> TryRestoreSessionAsync()
+    /// <summary>Restaure une session déjà persistée ; navigue vers les produits si OK.</summary>
+    public async Task InitializeAsync()
     {
-        var session = await _authService.RestoreSessionAsync();
-        return session is not null;
+        try
+        {
+            if (await _authService.RestoreSessionAsync() is not null)
+            {
+                // Voir AUDIT.md M-4 : démarré ici (session établie), pas dans
+                // ProductsPage.OnAppearing — les alertes de stock bas doivent arriver pour
+                // toute la session, pas seulement pendant que cet écran précis est affiché.
+                await _stockAlertSessionListener.StartAsync();
+                await _navigation.GoToAsync("//products");
+            }
+        }
+        catch (Exception)
+        {
+            // Appelée depuis OnAppearing (async void, voir LoginPage.xaml.cs) : un échec de
+            // lecture SecureStorage (Keystore Android indisponible, etc.) ne doit jamais faire
+            // planter l'app au lancement — au pire l'utilisateur retape ses identifiants
+            // (voir ré-audit, incohérence avec ProductsViewModel/MovementViewModel qui se
+            // protègent déjà de la même façon).
+            ErrorMessage = "Impossible de restaurer la session. Reconnecte-toi.";
+        }
     }
 
     [RelayCommand]
@@ -54,12 +81,12 @@ public sealed partial class LoginViewModel : ObservableObject
             await _authService.LoginAsync(Email.Trim(), Password);
             Password = string.Empty;
 
-            await Shell.Current.GoToAsync("//products");
+            await _stockAlertSessionListener.StartAsync();
+            await _navigation.GoToAsync("//products");
         }
-        catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized
+            || ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
         {
-            // Message volontairement générique côté backend (anti-énumération de comptes) —
-            // on l'affiche tel quel.
             ErrorMessage = await ApiErrorReader.ReadDetailAsync(ex) ?? "Identifiants invalides.";
         }
         catch (Exception)

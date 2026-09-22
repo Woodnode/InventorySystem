@@ -12,8 +12,8 @@
         <zxing:CameraBarcodeReaderView
             Grid.Row="0"
             x:Name="BarcodeView"
-            IsVisible="{Binding IsWindowsUnsupported, Converter={StaticResource InvertedBoolConverter}}"
-            IsDetecting="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}"
+            IsVisible="{Binding ShowCamera}"
+            IsDetecting="{Binding IsDetecting}"
             BarcodesDetected="OnBarcodesDetected" />
 
         <Label Grid.Row="0"
@@ -21,6 +21,13 @@
                IsVisible="{Binding IsWindowsUnsupported}"
                HorizontalOptions="Center"
                VerticalOptions="Center" />
+
+        <Label Grid.Row="0"
+               Text="Permission caméra refusée. Autorisez l'appareil photo dans les réglages."
+               IsVisible="{Binding ShowPermissionDenied}"
+               HorizontalOptions="Center"
+               VerticalOptions="Center"
+               Margin="24" />
 
         <VerticalStackLayout Grid.Row="1" Padding="16" Spacing="8">
             <Label Text="{Binding ErrorMessage}"

@@ -16,6 +16,12 @@ public partial class ScanPage : ContentPage
         BarcodeView.Options = new BarcodeReaderOptions { Formats = BarcodeFormats.All };
     }
 
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await _viewModel.EnsureCameraPermissionAsync();
+    }
+
     private void OnBarcodesDetected(object? sender, BarcodeDetectionEventArgs e)
     {
         var value = e.Results.FirstOrDefault()?.Value;

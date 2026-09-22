@@ -33,7 +33,12 @@ public static class DependencyInjection
 
         // Enregistré via factory (pas juste AddTransient<AuthHeaderHandler>()) car il a
         // besoin de l'URL de base, qui n'est pas résolvable depuis le conteneur DI.
-        services.AddTransient(sp => new AuthHeaderHandler(sp.GetRequiredService<ITokenStore>(), apiBaseUrl));
+        // Lazy<> casse les cycles DI AuthService / SessionExpired ↔ HttpClient.
+        services.AddTransient(sp => new AuthHeaderHandler(
+            sp.GetRequiredService<ITokenStore>(),
+            new Lazy<IAuthService>(sp.GetRequiredService<IAuthService>),
+            new Lazy<ISessionExpiredNotifier>(sp.GetRequiredService<ISessionExpiredNotifier>),
+            apiBaseUrl));
 
         services
             .AddRefitClient<IInventoryApi>(new RefitSettings

@@ -17,6 +17,8 @@ public sealed class AuthService : IAuthService
 
     public AuthSession? CurrentSession { get; private set; }
 
+    public void ApplySession(AuthSession? session) => CurrentSession = session;
+
     public async Task<AuthSession?> RestoreSessionAsync()
     {
         CurrentSession = await _tokenStore.LoadAsync();
