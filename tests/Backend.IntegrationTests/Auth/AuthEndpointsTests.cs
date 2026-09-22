@@ -82,14 +82,16 @@ public sealed class AuthEndpointsTests
     }
 
     [Fact]
-    public async Task Login_WithWrongPassword_ReturnsBadRequest()
+    public async Task Login_WithWrongPassword_ReturnsUnauthorized()
     {
         var email = UniqueEmail();
         await RegisterAsync(email);
 
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginCommand(email, "MauvaisMotDePasse1"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        // AuthenticationException -> 401, pas 400 : ce n'est pas une erreur de validation
+        // de la requête, c'est un échec d'authentification (voir B-R2).
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -100,7 +102,7 @@ public sealed class AuthEndpointsTests
         var response = await _client.PostAsJsonAsync(
             "/api/v1/auth/login", new LoginCommand(UniqueEmail(), "Test1234!"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     // --- Refresh ---
@@ -122,26 +124,39 @@ public sealed class AuthEndpointsTests
     }
 
     [Fact]
-    public async Task Refresh_WithAlreadyUsedToken_IsRejected()
+    public async Task Refresh_ImmediateReplayOfConsumedToken_ReturnsSameTokenPairFromCache()
     {
-        // La rotation interdit de rejouer un refresh token déjà consommé.
+        // Fenêtre de grâce de 30s (voir MemoryRefreshRotationCache / B-H6r2) : un rejeu immédiat
+        // du même token juste consommé est traité comme un perdant de course concurrente, pas
+        // comme un vol — il reçoit le même couple de jetons que la première requête (200, pas
+        // une erreur). La vraie détection de réutilisation malveillante (hors fenêtre) est
+        // couverte par RefreshTokenCommandHandlerTests côté Backend.UnitTests, qui mocke
+        // IRefreshTokenRepository.TryHandleReuseAsync sans dépendre d'un vrai délai de 30s.
         var email = UniqueEmail();
         var registerResponse = await RegisterAsync(email);
         var original = await registerResponse.Content.ReadFromJsonAsync<AuthResultDto>();
 
-        await _client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenCommand(original!.RefreshToken));
-        var replay = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new RefreshTokenCommand(original.RefreshToken));
+        var first = await _client.PostAsJsonAsync(
+            "/api/v1/auth/refresh", new RefreshTokenCommand(original!.RefreshToken));
+        var replay = await _client.PostAsJsonAsync(
+            "/api/v1/auth/refresh", new RefreshTokenCommand(original.RefreshToken));
 
-        replay.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        replay.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var firstResult = await first.Content.ReadFromJsonAsync<AuthResultDto>();
+        var replayResult = await replay.Content.ReadFromJsonAsync<AuthResultDto>();
+        replayResult!.AccessToken.Should().Be(firstResult!.AccessToken);
+        replayResult.RefreshToken.Should().Be(firstResult.RefreshToken);
     }
 
     [Fact]
-    public async Task Refresh_WithGarbageToken_ReturnsBadRequest()
+    public async Task Refresh_WithGarbageToken_ReturnsUnauthorized()
     {
         var response = await _client.PostAsJsonAsync(
             "/api/v1/auth/refresh", new RefreshTokenCommand("ceci-n-est-pas-un-refresh-token-valide"));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     // --- Policies de rôles sur les endpoints métier (vérifie que la sécurité tient vraiment) ---

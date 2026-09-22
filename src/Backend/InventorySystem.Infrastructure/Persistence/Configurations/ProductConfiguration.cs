@@ -25,6 +25,13 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.Description).HasMaxLength(1000);
         builder.Property(p => p.LowStockThreshold).IsRequired();
 
+        // Nouveaux champs d'édition
+        builder.Property(p => p.ProjectCode).HasMaxLength(200);
+        builder.Property(p => p.Collection).HasMaxLength(150);
+        builder.Property(p => p.VolumeNumber).HasMaxLength(50);
+        builder.Property(p => p.ProductType).HasMaxLength(100);
+        builder.Property(p => p.Company).HasMaxLength(150);
+
         builder.HasOne<Supplier>().WithMany().HasForeignKey(p => p.SupplierId).OnDelete(DeleteBehavior.SetNull);
     }
 }

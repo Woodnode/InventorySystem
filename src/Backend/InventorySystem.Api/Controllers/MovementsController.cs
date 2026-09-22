@@ -52,6 +52,8 @@ public sealed class MovementsController : ControllerBase
         [FromQuery] ExportFormat format, [FromQuery] Guid? productId, CancellationToken ct)
     {
         var file = await _mediator.Send(new ExportMovementsQuery(format, productId), ct);
+        if (file.Truncated)
+            Response.Headers.Append("X-Export-Truncated", "true");
         return File(file.Content, file.ContentType, file.FileName);
     }
 }

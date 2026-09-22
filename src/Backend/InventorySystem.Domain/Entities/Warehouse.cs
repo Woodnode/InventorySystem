@@ -33,4 +33,13 @@ public sealed class Warehouse : BaseEntity
     public void Deactivate() => IsActive = false;
 
     public void Activate() => IsActive = true;
+
+    public void Rename(string name, string? address)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new DomainException("Le nom de l'entrepôt est obligatoire.");
+
+        Name = name;
+        Address = address;
+    }
 }

@@ -1,17 +1,14 @@
+using InventorySystem.Application.Common;
 using InventorySystem.Application.Common.Dtos;
 using InventorySystem.Application.Common.Interfaces;
 using InventorySystem.Application.Movements.Dtos;
-using InventorySystem.Domain.Entities;
 using MediatR;
 
 namespace InventorySystem.Application.Movements.Queries;
 
 /// <summary>
 /// Cas d'usage : exporter l'historique des mouvements de stock en CSV ou Excel — soit
-/// pour un seul produit (<see cref="ProductId"/> renseigné, même périmètre que
-/// <see cref="GetMovementsByProductQuery"/>), soit l'historique complet.
-/// Résout les noms de produit et d'entrepôt (l'agrégat StockMovement ne porte que des
-/// Guid — voir Domain) en une seule passe, sans requête N+1 par ligne.
+/// pour un seul produit, soit l'historique récent borné (<see cref="ExportLimits.MaxRows"/>).
 /// </summary>
 public sealed record ExportMovementsQuery(ExportFormat Format, Guid? ProductId = null)
     : IRequest<ExportFileDto>;
@@ -38,13 +35,21 @@ public sealed class ExportMovementsQueryHandler : IRequestHandler<ExportMovement
     public async Task<ExportFileDto> Handle(ExportMovementsQuery request, CancellationToken cancellationToken)
     {
         var movements = request.ProductId is Guid productId
-            ? await _movements.ListByProductAsync(productId, cancellationToken)
-            : await _movements.ListAllAsync(cancellationToken);
+            ? await _movements.ListByProductAsync(productId, ExportLimits.MaxRows, cancellationToken)
+            : await _movements.ListAllAsync(ExportLimits.MaxRows, cancellationToken);
 
-        // Résolution des noms en une seule passe (deux requêtes au total, pas une par ligne).
-        var products = (await _products.ListAsync(cancellationToken))
+        var truncated = movements.Count >= ExportLimits.MaxRows;
+
+        var productIds = movements.Select(m => m.ProductId).Distinct();
+        var products = (await _products.ListByIdsAsync(productIds, cancellationToken))
             .ToDictionary(p => p.Id, p => p);
-        var warehouses = (await _warehouses.ListAsync(cancellationToken))
+
+        var warehouseIds = movements
+            .SelectMany(m => m.ToWarehouseId is Guid to
+                ? new[] { m.WarehouseId, to }
+                : new[] { m.WarehouseId })
+            .Distinct();
+        var warehouses = (await _warehouses.ListByIdsAsync(warehouseIds, cancellationToken))
             .ToDictionary(w => w.Id, w => w.Name);
 
         var rows = movements
@@ -64,6 +69,11 @@ public sealed class ExportMovementsQueryHandler : IRequestHandler<ExportMovement
             })
             .ToList();
 
-        return _export.ExportMovements(rows, request.Format);
+        var file = await _export.ExportMovementsAsync(rows, request.Format, cancellationToken);
+        if (!truncated)
+            return file;
+
+        var name = Path.GetFileNameWithoutExtension(file.FileName) + "_tronque" + Path.GetExtension(file.FileName);
+        return file with { FileName = name, Truncated = true };
     }
 }

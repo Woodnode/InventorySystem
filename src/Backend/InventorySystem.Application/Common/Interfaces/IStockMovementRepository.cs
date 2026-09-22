@@ -14,14 +14,20 @@ public interface IStockMovementRepository
     /// <summary>Vérifie l'idempotence d'un mouvement synchronisé depuis le mobile (plan §8.3).</summary>
     Task<bool> ExistsByClientGuidAsync(Guid clientGuid, CancellationToken ct = default);
 
-    /// <summary>Liste complète, non paginée — réservée à l'export (CSV/Excel).</summary>
-    Task<IReadOnlyList<StockMovement>> ListByProductAsync(Guid productId, CancellationToken ct = default);
+    /// <summary>
+    /// Liste bornée pour un produit (export ciblé) — plafond <paramref name="maxRows"/>.
+    /// </summary>
+    Task<IReadOnlyList<StockMovement>> ListByProductAsync(
+        Guid productId, int maxRows, CancellationToken ct = default);
 
     /// <summary>Page d'historique, plus récents en premier — utilisée par les écrans web/mobile
     /// (l'historique grandit sans borne, contrairement aux listes de référence).</summary>
     Task<(IReadOnlyList<StockMovement> Items, int TotalCount)> ListByProductPagedAsync(
         Guid productId, int page, int pageSize, CancellationToken ct = default);
 
-    /// <summary>Tous les mouvements, tous produits confondus (utilisé pour l'export global).</summary>
-    Task<IReadOnlyList<StockMovement>> ListAllAsync(CancellationToken ct = default);
+    /// <summary>
+    /// Liste bornée (plafond <paramref name="maxRows"/>), plus récents en premier —
+    /// réservée à l'export global pour éviter de charger un historique illimité.
+    /// </summary>
+    Task<IReadOnlyList<StockMovement>> ListAllAsync(int maxRows, CancellationToken ct = default);
 }

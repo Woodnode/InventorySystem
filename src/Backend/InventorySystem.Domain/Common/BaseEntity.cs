@@ -2,7 +2,7 @@ namespace InventorySystem.Domain.Common;
 
 /// <summary>
 /// Classe de base pour toutes les entités du domaine.
-/// Porte l'identifiant, les champs d'audit et la collection de domain events.
+/// Porte l'identifiant et les champs d'audit.
 /// </summary>
 public abstract class BaseEntity
 {

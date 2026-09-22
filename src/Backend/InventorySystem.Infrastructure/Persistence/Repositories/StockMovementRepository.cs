@@ -16,10 +16,12 @@ public sealed class StockMovementRepository : IStockMovementRepository
     public Task<bool> ExistsByClientGuidAsync(Guid clientGuid, CancellationToken ct = default)
         => _db.StockMovements.AnyAsync(m => m.ClientGuid == clientGuid, ct);
 
-    public async Task<IReadOnlyList<StockMovement>> ListByProductAsync(Guid productId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<StockMovement>> ListByProductAsync(
+        Guid productId, int maxRows, CancellationToken ct = default)
         => await _db.StockMovements.AsNoTracking()
             .Where(m => m.ProductId == productId)
             .OrderByDescending(m => m.CreatedAtUtc)
+            .Take(maxRows)
             .ToListAsync(ct);
 
     public async Task<(IReadOnlyList<StockMovement> Items, int TotalCount)> ListByProductPagedAsync(
@@ -29,13 +31,15 @@ public sealed class StockMovementRepository : IStockMovementRepository
             .Where(m => m.ProductId == productId)
             .OrderByDescending(m => m.CreatedAtUtc);
 
+        
         var totalCount = await query.CountAsync(ct);
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         return (items, totalCount);
     }
 
-    public async Task<IReadOnlyList<StockMovement>> ListAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<StockMovement>> ListAllAsync(int maxRows, CancellationToken ct = default)
         => await _db.StockMovements.AsNoTracking()
             .OrderByDescending(m => m.CreatedAtUtc)
+            .Take(maxRows)
             .ToListAsync(ct);
 }

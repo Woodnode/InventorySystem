@@ -41,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<ISupplierRepository, SupplierRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IExportService, ExportService>();
+        services.AddMemoryCache();
+        services.AddSingleton<IRefreshRotationCache, MemoryRefreshRotationCache>();
 
         // --- SignalR (alertes de stock bas temps réel — voir StockHub/StockNotifier) ---
         services.AddSignalR();
