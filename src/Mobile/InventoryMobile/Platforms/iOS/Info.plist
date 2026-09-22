@@ -6,6 +6,7 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Cette application utilise l'appareil photo pour scanner les codes-barres et QR codes des produits.</string>
+	<!-- Release : pas d'exception ATS (HTTPS uniquement). -->
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>

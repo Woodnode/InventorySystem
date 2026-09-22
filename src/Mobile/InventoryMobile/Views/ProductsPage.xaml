@@ -11,7 +11,7 @@
         <ToolbarItem Text="Scanner" Command="{Binding ScanCommand}" />
     </ContentPage.ToolbarItems>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16">
 
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
             <Label Grid.Column="0"
@@ -21,20 +21,28 @@
             <Button Grid.Column="1" Text="Déconnexion" Command="{Binding LogoutCommand}" />
         </Grid>
 
+        <!-- Voir AUDIT.md M-1 : GET /products/low-stock était appelé nulle part côté mobile. -->
         <Label Grid.Row="1"
+               Text="{Binding LowStockCount, StringFormat='{0} produit(s) sous le seuil de réappro.'}"
+               TextColor="OrangeRed"
+               FontSize="13"
+               IsVisible="{Binding LowStockCount, Converter={StaticResource IntGreaterThanZeroConverter}}"
+               Margin="0,0,0,8" />
+
+        <Label Grid.Row="2"
                Text="{Binding PendingSyncCount, StringFormat='{0} mouvement(s) en attente de synchronisation.'}"
                TextColor="DarkOrange"
                FontSize="13"
                IsVisible="{Binding PendingSyncCount, Converter={StaticResource IntGreaterThanZeroConverter}}"
                Margin="0,0,0,8" />
 
-        <Label Grid.Row="2"
+        <Label Grid.Row="3"
                Text="{Binding ErrorMessage}"
                TextColor="Red"
                IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}"
                Margin="0,0,0,8" />
 
-        <RefreshView Grid.Row="3" IsRefreshing="{Binding IsBusy}" Command="{Binding LoadCommand}">
+        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsBusy}" Command="{Binding LoadCommand}">
             <CollectionView ItemsSource="{Binding Products}">
                 <CollectionView.EmptyView>
                     <Label Text="Aucun produit." HorizontalOptions="Center" VerticalOptions="Center" />

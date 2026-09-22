@@ -1,3 +1,4 @@
+using System.Net;
 using InventoryMobile.Application.Auth;
 using InventoryMobile.Application.Connectivity;
 using InventoryMobile.Infrastructure.Api;
@@ -36,6 +37,7 @@ public sealed class MovementSyncService : IMovementSyncService
 
         var pending = await _queue.GetPendingAsync();
         var syncedCount = 0;
+        var discardedCount = 0;
 
         foreach (var movement in pending)
         {
@@ -56,24 +58,32 @@ public sealed class MovementSyncService : IMovementSyncService
                 await _queue.MarkSyncedAsync(movement.ClientGuid);
                 syncedCount++;
             }
+            catch (ApiException ex) when (
+                ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            {
+                // Session invalide : arrêter tout de suite (AuthHeaderHandler redirige au login).
+                break;
+            }
+            catch (ApiException ex) when (
+                ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
+            {
+                // Rejet métier définitif (ou ClientGuid déjà synchronisé) : retirer de la file
+                // pour éviter une boucle « poison » indéfinie.
+                await _queue.MarkSyncedAsync(movement.ClientGuid);
+                discardedCount++;
+            }
             catch (ApiException)
             {
-                // Le serveur a répondu mais a rejeté CE mouvement précis (ClientGuid déjà
-                // synchronisé, ou règle métier désormais violée — ex. stock insuffisant).
-                // Ni l'un ni l'autre n'indique une panne réseau : on laisse ce mouvement
-                // "pending" et on continue avec le suivant. Limite connue et assumée : un
-                // mouvement définitivement invalide reste "pending" indéfiniment, sans UI
-                // dédiée pour le consulter/purger (hors scope de ce jalon).
+                // Autre erreur HTTP (5xx…) : laisser pending et continuer avec le suivant.
             }
             catch (Exception)
             {
-                // Panne de transport (pas de réponse du serveur) : les mouvements suivants
-                // échoueraient probablement de façon identique. On arrête ce passage ; le
-                // prochain déclenchement (retour sur ProductsPage) réessaiera depuis le début.
+                // Panne de transport : arrêter ce passage.
                 break;
             }
         }
 
-        return new SyncResult(syncedCount, pending.Count - syncedCount);
+        var remaining = pending.Count - syncedCount - discardedCount;
+        return new SyncResult(syncedCount, remaining);
     }
 }
