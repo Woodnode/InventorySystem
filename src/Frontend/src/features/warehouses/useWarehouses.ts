@@ -28,3 +28,34 @@ export function useCreateWarehouse() {
     },
   });
 }
+
+/** Modifie nom/adresse (voir AUDIT.md F-4 : le catalogue était create-only). */
+export function useUpdateWarehouse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: CreateWarehouseInput & { id: string }) => {
+      await apiClient.put(`/warehouses/${id}`, input);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Active/désactive un entrepôt — remplace la suppression : un entrepôt référencé par du
+ * stock ou des mouvements historiques ne doit jamais disparaître (voir AUDIT.md F-4).
+ */
+export function useSetWarehouseActive() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      await apiClient.patch(`/warehouses/${id}/active`, { isActive });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+}

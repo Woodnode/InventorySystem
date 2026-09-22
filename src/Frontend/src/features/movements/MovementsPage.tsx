@@ -3,25 +3,18 @@ import { Link } from 'react-router-dom';
 import { ExportButtons } from '../../shared/components/ExportButtons';
 import { PaginationControls } from '../../shared/components/PaginationControls';
 import { QueryState } from '../../shared/components/QueryState';
-import { useProducts } from '../products/useProducts';
+import { useAllProductsForPicker } from '../products/useProducts';
 import { useWarehouses } from '../warehouses/useWarehouses';
 import { exportMovements, useMovementsByProduct } from './useMovements';
 import { MovementForm } from './MovementForm';
 import { MovementList } from './MovementList';
 
-// Ce sélecteur a besoin de la liste complète des produits, pas d'une page — voir
-// useProducts.ts. Même compromis que côté mobile (IInventoryApi.GetProductsAsync) :
-// pas encore d'écran de recherche/pagination pour ce menu déroulant.
-const PRODUCT_PICKER_PAGE_SIZE = 100;
-
 /**
  * Point d'entrée général des mouvements : sélection d'un produit, puis formulaire
  * + historique (mêmes hooks/composants que ProductDetailPage — voir plan §7).
- * Utile quand on part du mouvement plutôt que de la fiche produit (ex. réception
- * d'un lot dont on connaît le SKU mais pas encore l'écran produit).
  */
 export function MovementsPage() {
-  const { data: productsPage, isLoading } = useProducts(1, PRODUCT_PICKER_PAGE_SIZE);
+  const { data: products, isLoading } = useAllProductsForPicker();
   const { data: warehouses } = useWarehouses();
   const [productId, setProductId] = useState('');
   const [movementsPage, setMovementsPage] = useState(1);
@@ -55,7 +48,7 @@ export function MovementsPage() {
           disabled={isLoading}
         >
           <option value="">— choisir un produit —</option>
-          {productsPage?.items.map((p) => (
+          {products?.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name} · {p.sku}
             </option>
