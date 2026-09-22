@@ -37,3 +37,47 @@ appsettings.*.Local.json
 Thumbs.db
 *.swp
 .idea/
+
+# ---------- Profils de publication / bases locales ----------
+*.PublishSettings
+*.pubxml
+*.pubxml.user
+*.db
+*.db-shm
+*.db-wal
+
+# ---------- Outils IA et notes internes (jamais publiés) ----------
+.claude/
+.cursor/
+.cursorrules
+.cursorignore
+.gemini/
+.antigravity/
+.agent/
+.agents/
+.windsurf/
+.windsurfrules
+.codeium/
+.continue/
+.aider*
+.copilot/
+.kiro/
+.roo/
+.clinerules
+.cline/
+.opencode/
+.codex/
+.junie/
+.augment/
+.trae/
+.mcp.json
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+.github/copilot-instructions.md
+# Documentation Markdown interne : seuls les README sont publiés.
+*.md
+!README.md
+
+# ---------- Éditeur ----------
+.vscode/
