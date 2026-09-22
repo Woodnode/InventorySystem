@@ -1,12 +1,11 @@
 using InventorySystem.Application.Auth.Dtos;
+using InventorySystem.Application.Common.Exceptions;
 using InventorySystem.Application.Common.Interfaces;
-using InventorySystem.Domain.Exceptions;
 
 namespace InventorySystem.Application.Auth.Commands;
 
 /// <summary>
-/// Fabrique interne partagée par Register/Login/Refresh pour émettre un access token
-/// + un refresh token de façon identique (évite la duplication entre les trois handlers — SRP/DRY).
+/// Fabrique interne partagée Register/Login/Refresh (DRY).
 /// </summary>
 internal static class AuthTokenIssuer
 {
@@ -17,16 +16,25 @@ internal static class AuthTokenIssuer
         IUnitOfWork unitOfWork,
         Guid userId,
         CancellationToken ct,
-        IdentityUserInfo? knownUser = null)
+        IdentityUserInfo? knownUser = null,
+        Guid? familyId = null,
+        Guid? replacesTokenId = null)
     {
         var user = knownUser ?? await identity.FindByIdAsync(userId, ct)
-            ?? throw new DomainException("Utilisateur introuvable.");
+            ?? throw new AuthenticationException("Utilisateur introuvable.");
 
         var accessToken = tokens.GenerateAccessToken(user.Id, user.Email, user.Roles);
         var refreshToken = tokens.GenerateRefreshToken();
         var refreshTokenHash = tokens.HashRefreshToken(refreshToken);
+        var resolvedFamilyId = familyId ?? Guid.NewGuid();
 
-        await refreshTokens.StoreAsync(user.Id, refreshTokenHash, tokens.GetRefreshTokenExpiryUtc(), ct);
+        await refreshTokens.StoreAsync(
+            user.Id,
+            refreshTokenHash,
+            tokens.GetRefreshTokenExpiryUtc(),
+            resolvedFamilyId,
+            replacesTokenId,
+            ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return new AuthResultDto(

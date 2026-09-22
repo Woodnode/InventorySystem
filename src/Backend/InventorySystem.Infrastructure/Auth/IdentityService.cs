@@ -21,8 +21,13 @@ public sealed class IdentityService : IIdentityService
     public async Task<IdentityOperationResult> CreateUserAsync(
         string email, string password, string displayName, string role, CancellationToken ct = default)
     {
+        // UserManager n'expose pas toujours de CT : on honore l'annulation entre les étapes I/O.
+        ct.ThrowIfCancellationRequested();
+
         if (!await _roleManager.RoleExistsAsync(role))
             return IdentityOperationResult.Failure(new[] { $"Le rôle '{role}' n'existe pas." });
+
+        ct.ThrowIfCancellationRequested();
 
         var user = new ApplicationUser
         {
@@ -39,6 +44,8 @@ public sealed class IdentityService : IIdentityService
             return IdentityOperationResult.Failure(
                 createResult.Errors.Select(e => e.Description).Distinct().ToList());
 
+        ct.ThrowIfCancellationRequested();
+
         var roleResult = await _userManager.AddToRoleAsync(user, role);
         if (!roleResult.Succeeded)
             return IdentityOperationResult.Failure(roleResult.Errors.Select(e => e.Description).ToList());
@@ -49,14 +56,20 @@ public sealed class IdentityService : IIdentityService
     public async Task<IdentityUserInfo?> ValidateCredentialsAsync(
         string email, string password, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
+
         var user = await _userManager.FindByEmailAsync(email);
         if (user is null)
             return null;
+
+        ct.ThrowIfCancellationRequested();
 
         // Verrouillage après tentatives échouées : géré nativement par UserManager
         // (Options.Lockout, câblé dans DependencyInjection.cs — voir plan §6).
         if (await _userManager.IsLockedOutAsync(user))
             return null;
+
+        ct.ThrowIfCancellationRequested();
 
         var passwordValid = await _userManager.CheckPasswordAsync(user, password);
         if (!passwordValid)
@@ -67,17 +80,20 @@ public sealed class IdentityService : IIdentityService
 
         await _userManager.ResetAccessFailedCountAsync(user);
 
-        return await ToUserInfoAsync(user);
+        return await ToUserInfoAsync(user, ct);
     }
 
     public async Task<IdentityUserInfo?> FindByIdAsync(Guid userId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
+
         var user = await _userManager.FindByIdAsync(userId.ToString());
-        return user is null ? null : await ToUserInfoAsync(user);
+        return user is null ? null : await ToUserInfoAsync(user, ct);
     }
 
-    private async Task<IdentityUserInfo> ToUserInfoAsync(ApplicationUser user)
+    private async Task<IdentityUserInfo> ToUserInfoAsync(ApplicationUser user, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var roles = await _userManager.GetRolesAsync(user);
         return new IdentityUserInfo(user.Id, user.Email!, user.DisplayName, roles.ToList());
     }

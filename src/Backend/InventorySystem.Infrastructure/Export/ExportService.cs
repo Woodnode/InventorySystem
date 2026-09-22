@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using ClosedXML.Excel;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -10,17 +11,34 @@ using InventorySystem.Application.Products.Dtos;
 namespace InventorySystem.Infrastructure.Export;
 
 /// <summary>
-/// Implémentation de <see cref="IExportService"/> via ClosedXML (Excel) et CsvHelper (CSV).
-/// Seule classe du projet à référencer ces bibliothèques (DIP, voir plan §3.2/§4 — même
-/// principe que <see cref="Auth.IdentityService"/> pour ASP.NET Core Identity).
+/// Export CSV/Excel. Renvoie un <see cref="Stream"/> (pas de double buffer <c>byte[]</c>).
+/// CSV écrit en flux ; Excel (ClosedXML) reste borné par <c>ExportLimits.MaxRows</c>.
 /// </summary>
+/// <remarks>
+/// <c>Task.Run</c> ci-dessous (AUDIT.md B-A1) : ClosedXML et CsvHelper n'exposent aucune API
+/// async (E/S synchrone en mémoire, pas de vrai I/O réseau/disque à recouvrir), donc il n'y a
+/// pas de "vrai async" possible ici sans changer de bibliothèque. <c>Task.Run</c> reste un
+/// compromis pragmatique : il libère le thread de la requête ASP.NET Core pendant que le
+/// travail CPU-bound (borné à <c>ExportLimits.MaxRows</c> lignes) tourne sur le thread pool,
+/// plutôt que de bloquer le thread de requête directement. Accepté comme tel plutôt que
+/// "corrigé" — remplacer ClosedXML/CsvHelper par une alternative streaming async serait un
+/// changement de dépendance disproportionné pour ce gain.
+/// </remarks>
 public sealed class ExportService : IExportService
 {
     private const string CsvContentType = "text/csv";
     private const string ExcelContentType =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    public ExportFileDto ExportProducts(IReadOnlyList<ProductDto> products, ExportFormat format)
+    public Task<ExportFileDto> ExportProductsAsync(
+        IReadOnlyList<ProductDto> products, ExportFormat format, CancellationToken ct = default)
+        => Task.Run(() => ExportProducts(products, format), ct);
+
+    public Task<ExportFileDto> ExportMovementsAsync(
+        IReadOnlyList<MovementExportRow> movements, ExportFormat format, CancellationToken ct = default)
+        => Task.Run(() => ExportMovements(movements, format), ct);
+
+    private static ExportFileDto ExportProducts(IReadOnlyList<ProductDto> products, ExportFormat format)
     {
         var stamp = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -51,9 +69,10 @@ public sealed class ExportService : IExportService
 
             sheet.Columns().AdjustToContents();
 
-            using var stream = new MemoryStream();
+            var stream = new MemoryStream();
             workbook.SaveAs(stream);
-            return new ExportFileDto(stream.ToArray(), ExcelContentType, $"produits_{stamp}.xlsx");
+            stream.Position = 0;
+            return new ExportFileDto(stream, ExcelContentType, $"produits_{stamp}.xlsx");
         }
 
         var csvRecords = products.Select(p => new
@@ -69,7 +88,7 @@ public sealed class ExportService : IExportService
         return new ExportFileDto(WriteCsv(csvRecords), CsvContentType, $"produits_{stamp}.csv");
     }
 
-    public ExportFileDto ExportMovements(IReadOnlyList<MovementExportRow> movements, ExportFormat format)
+    private static ExportFileDto ExportMovements(IReadOnlyList<MovementExportRow> movements, ExportFormat format)
     {
         var stamp = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -106,9 +125,10 @@ public sealed class ExportService : IExportService
 
             sheet.Columns().AdjustToContents();
 
-            using var stream = new MemoryStream();
+            var stream = new MemoryStream();
             workbook.SaveAs(stream);
-            return new ExportFileDto(stream.ToArray(), ExcelContentType, $"mouvements_{stamp}.xlsx");
+            stream.Position = 0;
+            return new ExportFileDto(stream, ExcelContentType, $"mouvements_{stamp}.xlsx");
         }
 
         var csvRecords = movements.Select(m => new
@@ -134,16 +154,16 @@ public sealed class ExportService : IExportService
         _ => type.ToString(),
     };
 
-    private static byte[] WriteCsv<T>(IEnumerable<T> records)
+    private static MemoryStream WriteCsv<T>(IEnumerable<T> records)
     {
-        using var stream = new MemoryStream();
-        // Encoding.UTF8 (avec BOM) : garantit que les accents s'affichent correctement
-        // à l'ouverture dans Excel, notoirement strict sur l'encodage des CSV.
-        using (var writer = new StreamWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        var stream = new MemoryStream();
+        using (var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
         using (var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)))
         {
             csv.WriteRecords(records);
         }
-        return stream.ToArray();
+
+        stream.Position = 0;
+        return stream;
     }
 }

@@ -1,3 +1,4 @@
+using InventorySystem.Api.Contracts;
 using InventorySystem.Application.Auth.Commands;
 using InventorySystem.Application.Auth.Dtos;
 using MediatR;
@@ -7,11 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace InventorySystem.Api.Controllers;
 
 /// <summary>
-/// Controller mince : reçoit la requête, délègue à MediatR, renvoie le résultat — voir
-/// InventorySystem.Application.Auth (plan §6). Seule exception : la garde anti-escalade de
-/// rôle sur <see cref="Register"/>, qui a besoin de <see cref="ControllerBase.User"/> (l'appelant
-/// courant) et ne peut donc pas vivre dans un handler MediatR sans lui faire porter un
-/// concept HTTP.
+/// Controller mince : reçoit la requête HTTP, mappe vers une command MediatR, renvoie le résultat.
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
@@ -28,27 +25,40 @@ public sealed class AuthController : ControllerBase
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [AllowAnonymous]
-    public async Task<ActionResult<AuthResultDto>> Register(RegisterCommand command, CancellationToken ct)
+    public async Task<ActionResult<AuthResultDto>> Register(RegisterRequest request, CancellationToken ct)
     {
-        if (command.Role != "Employe" && !(User.Identity?.IsAuthenticated == true && User.IsInRole("Admin")))
+        if (request.Role != "Employe" && !(User.Identity?.IsAuthenticated == true && User.IsInRole("Admin")))
             return Forbid();
 
+        var command = new RegisterCommand(request.Email, request.Password, request.DisplayName, request.Role);
         return Ok(await _mediator.Send(command, ct));
     }
 
+    /// <summary>
+    /// 400 : requête malformée (validation FluentValidation, ex. champ vide).
+    /// 401 : identifiants invalides (voir <see cref="Application.Common.Exceptions.AuthenticationException"/>,
+    /// mappée par <c>ExceptionHandlingMiddleware</c>) — pas 400, pour rester sémantiquement correct
+    /// et cohérent avec les clients (voir B-R1/B-R2).
+    /// </summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [AllowAnonymous]
-    public async Task<ActionResult<AuthResultDto>> Login(LoginCommand command, CancellationToken ct)
-        => Ok(await _mediator.Send(command, ct));
+    public async Task<ActionResult<AuthResultDto>> Login(LoginRequest request, CancellationToken ct)
+        => Ok(await _mediator.Send(new LoginCommand(request.Email, request.Password), ct));
 
-    /// <summary>Renouvelle l'access token à partir d'un refresh token valide (rotation).</summary>
+    /// <summary>
+    /// Renouvelle l'access token à partir d'un refresh token valide (rotation).
+    /// 400 : requête malformée (token vide). 401 : token invalide/expiré/réutilisé.
+    /// </summary>
     [HttpPost("refresh")]
     [ProducesResponseType(typeof(AuthResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [AllowAnonymous]
-    public async Task<ActionResult<AuthResultDto>> Refresh(RefreshTokenCommand command, CancellationToken ct)
-        => Ok(await _mediator.Send(command, ct));
+    public async Task<ActionResult<AuthResultDto>> Refresh(RefreshTokenRequest request, CancellationToken ct)
+        => Ok(await _mediator.Send(new RefreshTokenCommand(request.RefreshToken), ct));
 }

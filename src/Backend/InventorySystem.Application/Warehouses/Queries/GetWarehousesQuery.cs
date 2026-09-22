@@ -1,3 +1,4 @@
+using InventorySystem.Application.Common;
 using InventorySystem.Application.Common.Interfaces;
 using InventorySystem.Application.Warehouses.Dtos;
 using MediatR;
@@ -12,9 +13,10 @@ public sealed class GetWarehousesQueryHandler : IRequestHandler<GetWarehousesQue
 
     public GetWarehousesQueryHandler(IWarehouseRepository warehouses) => _warehouses = warehouses;
 
-    public async Task<IReadOnlyList<WarehouseDto>> Handle(GetWarehousesQuery request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WarehouseDto>> Handle(
+        GetWarehousesQuery request, CancellationToken cancellationToken)
     {
-        var warehouses = await _warehouses.ListAsync(cancellationToken);
+        var warehouses = await _warehouses.ListAsync(QueryLimits.ReferenceMaxRows, cancellationToken);
         return warehouses.Select(w => new WarehouseDto(w.Id, w.Name, w.Address, w.IsActive)).ToList();
     }
 }

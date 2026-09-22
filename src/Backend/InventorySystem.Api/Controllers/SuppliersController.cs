@@ -33,4 +33,28 @@ public sealed class SuppliersController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<SupplierDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<SupplierDto>>> GetAll(CancellationToken ct)
         => Ok(await _mediator.Send(new GetSuppliersQuery(), ct));
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = "RequireGestionnaireOrAbove")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Update(Guid id, UpdateSupplierRequest request, CancellationToken ct)
+    {
+        await _mediator.Send(new UpdateSupplierCommand(id, request.Name, request.ContactEmail, request.Phone), ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Active/désactive plutôt que supprimer : un fournisseur référencé par des produits
+    /// existants ne doit jamais disparaître (parité avec WarehousesController — voir ré-audit).
+    /// </summary>
+    [HttpPatch("{id:guid}/active")]
+    [Authorize(Policy = "RequireGestionnaireOrAbove")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetActive(Guid id, SetSupplierActiveRequest request, CancellationToken ct)
+    {
+        await _mediator.Send(new SetSupplierActiveCommand(id, request.IsActive), ct);
+        return NoContent();
+    }
 }

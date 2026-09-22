@@ -19,7 +19,24 @@ public sealed record CreateProductCommand(
     int LowStockThreshold,
     Guid WarehouseId,
     int InitialQuantity,
-    Guid? SupplierId) : IRequest<Guid>;
+    Guid? SupplierId,
+    string? ProjectCode,
+    string? Collection,
+    string? VolumeNumber,
+    string? ProductType,
+    int? Year,
+    decimal? WeightPerCopyLb,
+    string? Company,
+    string? Section,
+    string? Space,
+    string? Pallet,
+    int BoxesCount,
+    int CopiesPerBox,
+    DateTime? EntryDate,
+    DateTime? ExitDate,
+    string? DistributorName,
+    DateTime? ReturnDate,
+    string? Comment) : IRequest<Guid>;
 
 public sealed class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
 {
@@ -29,6 +46,20 @@ public sealed class CreateProductCommandValidator : AbstractValidator<CreateProd
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
         RuleFor(x => x.InitialQuantity).GreaterThanOrEqualTo(0);
+
+        RuleFor(x => x.ProjectCode).MaximumLength(200);
+        RuleFor(x => x.Collection).MaximumLength(150);
+        RuleFor(x => x.VolumeNumber).MaximumLength(50);
+        RuleFor(x => x.ProductType).MaximumLength(100);
+        RuleFor(x => x.Company).MaximumLength(150);
+
+        RuleFor(x => x.Section).MaximumLength(50);
+        RuleFor(x => x.Space).MaximumLength(50);
+        RuleFor(x => x.Pallet).MaximumLength(50);
+        RuleFor(x => x.DistributorName).MaximumLength(150);
+        RuleFor(x => x.Comment).MaximumLength(1000);
+        RuleFor(x => x.BoxesCount).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.CopiesPerBox).GreaterThanOrEqualTo(0);
 
         RuleFor(x => x.WarehouseId)
             .MustAsync((id, ct) => warehouses.ExistsAsync(id, ct))
@@ -61,9 +92,22 @@ public sealed class CreateProductCommandHandler : IRequestHandler<CreateProductC
             request.Name,
             request.Description,
             request.LowStockThreshold,
-            request.SupplierId);
+            request.SupplierId,
+            request.ProjectCode,
+            request.Collection,
+            request.VolumeNumber,
+            request.ProductType,
+            request.Year,
+            request.WeightPerCopyLb,
+            request.Company);
 
         var stock = Stock.Create(product.Id, request.WarehouseId, request.InitialQuantity);
+        
+        stock.UpdateLogistics(
+            request.Section, request.Space, request.Pallet,
+            request.BoxesCount, request.CopiesPerBox,
+            request.EntryDate, request.ExitDate,
+            request.DistributorName, request.ReturnDate, request.Comment);
 
         await _products.AddAsync(product, cancellationToken);
         await _stocks.AddAsync(stock, cancellationToken);

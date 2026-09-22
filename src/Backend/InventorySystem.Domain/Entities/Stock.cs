@@ -5,15 +5,29 @@ namespace InventorySystem.Domain.Entities;
 
 /// <summary>
 /// Quantité d'un <see cref="Product"/> disponible dans un <see cref="Warehouse"/> donné.
-/// Aggregate root à part entière (clé métier : ProductId + WarehouseId, unique — voir
-/// StockConfiguration) : Product reste un catalogue pur, il ne connaît pas sa quantité.
-/// C'est ce découpage qui permet un vrai stock multi-entrepôt et des transferts (plan §3).
 /// </summary>
 public sealed class Stock : BaseEntity
 {
     public Guid ProductId { get; private set; }
     public Guid WarehouseId { get; private set; }
     public int Quantity { get; private set; }
+
+    // Champs de logistique et d'emplacement (Excel)
+    public string? Section { get; private set; }
+    public string? Space { get; private set; }
+    public string? Pallet { get; private set; }
+    public int BoxesCount { get; private set; }
+    public int CopiesPerBox { get; private set; }
+    public DateTime? EntryDate { get; private set; }
+    public DateTime? ExitDate { get; private set; }
+    public string? DistributorName { get; private set; }
+    public DateTime? ReturnDate { get; private set; }
+    public string? Comment { get; private set; }
+
+    // Dernière prise d'inventaire physique pour cet emplacement (feuille "Inventaire" de
+    // l'Excel, distincte de la feuille "ListeProduits" — voir ImportProductsCommand).
+    public DateTime? InventoryDate { get; private set; }
+    public string? ResponsibleName { get; private set; }
 
     /// <summary>
     /// Jeton de concurrence optimiste (mappé sur la colonne système Postgres xmin en
@@ -37,6 +51,38 @@ public sealed class Stock : BaseEntity
             throw new DomainException("La quantité initiale ne peut pas être négative.");
 
         return new Stock(productId, warehouseId, initialQuantity);
+    }
+
+    public void UpdateLogistics(
+        string? section, string? space, string? pallet, 
+        int boxesCount, int copiesPerBox, 
+        DateTime? entryDate, DateTime? exitDate, 
+        string? distributorName, DateTime? returnDate, string? comment)
+    {
+        if (boxesCount < 0) throw new DomainException("Le nombre de boîtes ne peut pas être négatif.");
+        if (copiesPerBox < 0) throw new DomainException("Le nombre de copies par boîte ne peut pas être négatif.");
+
+        Section = section;
+        Space = space;
+        Pallet = pallet;
+        BoxesCount = boxesCount;
+        CopiesPerBox = copiesPerBox;
+        EntryDate = entryDate;
+        ExitDate = exitDate;
+        DistributorName = distributorName;
+        ReturnDate = returnDate;
+        Comment = comment;
+
+        Touch();
+    }
+
+    /// <summary>Enregistre le résultat d'une prise d'inventaire physique (feuille "Inventaire").</summary>
+    public void RecordInventoryTake(DateTime? inventoryDate, string? responsibleName)
+    {
+        InventoryDate = inventoryDate;
+        ResponsibleName = responsibleName;
+
+        Touch();
     }
 
     /// <summary>Entrée de stock (réception, retour, ou moitié "arrivée" d'un transfert).</summary>

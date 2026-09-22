@@ -15,6 +15,14 @@ public sealed class StockConfiguration : IEntityTypeConfiguration<Stock>
         builder.Property(s => s.WarehouseId).IsRequired();
         builder.Property(s => s.Quantity).IsRequired();
 
+        // Champs de logistique
+        builder.Property(s => s.Section).HasMaxLength(50);
+        builder.Property(s => s.Space).HasMaxLength(50);
+        builder.Property(s => s.Pallet).HasMaxLength(50);
+        builder.Property(s => s.DistributorName).HasMaxLength(150);
+        builder.Property(s => s.Comment).HasMaxLength(1000);
+        builder.Property(s => s.ResponsibleName).HasMaxLength(150);
+
         // Une seule ligne de stock par (produit, entrepôt) — c'est la clé métier réelle.
         builder.HasIndex(s => new { s.ProductId, s.WarehouseId }).IsUnique();
 

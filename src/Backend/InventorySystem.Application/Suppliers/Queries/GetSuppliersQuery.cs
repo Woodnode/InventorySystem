@@ -1,3 +1,4 @@
+using InventorySystem.Application.Common;
 using InventorySystem.Application.Common.Interfaces;
 using InventorySystem.Application.Suppliers.Dtos;
 using MediatR;
@@ -12,9 +13,10 @@ public sealed class GetSuppliersQueryHandler : IRequestHandler<GetSuppliersQuery
 
     public GetSuppliersQueryHandler(ISupplierRepository suppliers) => _suppliers = suppliers;
 
-    public async Task<IReadOnlyList<SupplierDto>> Handle(GetSuppliersQuery request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SupplierDto>> Handle(
+        GetSuppliersQuery request, CancellationToken cancellationToken)
     {
-        var suppliers = await _suppliers.ListAsync(cancellationToken);
-        return suppliers.Select(s => new SupplierDto(s.Id, s.Name, s.ContactEmail, s.Phone)).ToList();
+        var suppliers = await _suppliers.ListAsync(QueryLimits.ReferenceMaxRows, cancellationToken);
+        return suppliers.Select(s => new SupplierDto(s.Id, s.Name, s.ContactEmail, s.Phone, s.IsActive)).ToList();
     }
 }

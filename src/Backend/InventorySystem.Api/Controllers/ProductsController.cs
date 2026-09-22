@@ -33,17 +33,35 @@ public sealed class ProductsController : ControllerBase
     {
         var command = new CreateProductCommand(
             request.Sku, request.Name, request.Description, request.LowStockThreshold,
-            request.WarehouseId, request.InitialQuantity, request.SupplierId);
+            request.WarehouseId, request.InitialQuantity, request.SupplierId,
+            request.ProjectCode, request.Collection, request.VolumeNumber, request.ProductType, request.Year, request.WeightPerCopyLb,
+            request.Company,
+            request.Section, request.Space, request.Pallet, request.BoxesCount, request.CopiesPerBox,
+            request.EntryDate, request.ExitDate, request.DistributorName, request.ReturnDate, request.Comment);
         var id = await _mediator.Send(command, ct);
         return CreatedAtAction(nameof(GetAll), new { id }, new { id });
     }
 
-    /// <summary>Liste paginée des produits, avec leur stock total agrégé.</summary>
+    /// <summary>
+    /// Liste paginée des produits, avec leur stock total agrégé. <paramref name="search"/>
+    /// filtre sur SKU ou nom ; <paramref name="minQuantity"/>/<paramref name="maxQuantity"/>/
+    /// <paramref name="lowStockOnly"/> filtrent sur le stock total agrégé. <paramref name="sortBy"/>/
+    /// <paramref name="sortDescending"/> contrôlent le tri (nom par défaut).
+    /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<ProductDto>>> GetAll(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
-        => Ok(await _mediator.Send(new GetProductsQuery(page, pageSize), ct));
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] int? minQuantity = null,
+        [FromQuery] int? maxQuantity = null,
+        [FromQuery] bool lowStockOnly = false,
+        [FromQuery] ProductSortBy sortBy = ProductSortBy.Name,
+        [FromQuery] bool sortDescending = false,
+        CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetProductsQuery(
+            page, pageSize, search, minQuantity, maxQuantity, lowStockOnly, sortBy, sortDescending), ct));
 
     /// <summary>Récupère un produit par id, avec son stock total agrégé.</summary>
     [HttpGet("{id:guid}")]
@@ -65,11 +83,12 @@ public sealed class ProductsController : ControllerBase
         return product is null ? NotFound() : Ok(product);
     }
 
-    /// <summary>Liste les produits dont le stock est sous le seuil de réappro.</summary>
+    /// <summary>Liste paginée des produits dont le stock est sous le seuil de réappro.</summary>
     [HttpGet("low-stock")]
-    [ProducesResponseType(typeof(IReadOnlyList<ProductDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetLowStock(CancellationToken ct)
-        => Ok(await _mediator.Send(new GetLowStockQuery(), ct));
+    [ProducesResponseType(typeof(PagedResult<ProductDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<ProductDto>>> GetLowStock(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetLowStockQuery(page, pageSize), ct));
 
     /// <summary>Exporte le catalogue produits (avec stock total agrégé) en CSV ou Excel.</summary>
     [HttpGet("export")]
@@ -77,6 +96,23 @@ public sealed class ProductsController : ControllerBase
     public async Task<IActionResult> Export([FromQuery] ExportFormat format, CancellationToken ct)
     {
         var file = await _mediator.Send(new ExportProductsQuery(format), ct);
+        if (file.Truncated)
+            Response.Headers.Append("X-Export-Truncated", "true");
         return File(file.Content, file.ContentType, file.FileName);
+    }
+
+    /// <summary>Importe le catalogue produits depuis un fichier CSV.</summary>
+    [HttpPost("import")]
+    [Authorize(Policy = "RequireGestionnaireOrAbove")]
+    [ProducesResponseType(typeof(ImportResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Import(IFormFile file, CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Fichier manquant ou vide.");
+
+        using var stream = file.OpenReadStream();
+        var result = await _mediator.Send(new ImportProductsCommand(stream, file.FileName), ct);
+        return Ok(result);
     }
 }

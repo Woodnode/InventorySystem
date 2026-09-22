@@ -5,8 +5,8 @@ namespace InventorySystem.Application.Common.Behaviors;
 
 /// <summary>
 /// Pipeline MediatR : exécute tous les FluentValidation.IValidator&lt;TRequest&gt;
-/// enregistrés avant que le handler ne soit appelé. Centralise la validation
-/// des Commands/Queries sans polluer les handlers.
+/// enregistrés avant que le handler ne soit appelé. Validation <b>séquentielle</b>
+/// pour rester compatible avec un DbContext scoped (EF Core n'est pas thread-safe).
 /// </summary>
 public sealed class ValidationBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
@@ -25,13 +25,13 @@ public sealed class ValidationBehavior<TRequest, TResponse>
         if (_validators.Any())
         {
             var context = new ValidationContext<TRequest>(request);
-            var results = await Task.WhenAll(
-                _validators.Select(v => v.ValidateAsync(context, cancellationToken)));
+            var failures = new List<FluentValidation.Results.ValidationFailure>();
 
-            var failures = results
-                .SelectMany(r => r.Errors)
-                .Where(f => f is not null)
-                .ToList();
+            foreach (var validator in _validators)
+            {
+                var result = await validator.ValidateAsync(context, cancellationToken);
+                failures.AddRange(result.Errors.Where(f => f is not null));
+            }
 
             if (failures.Count != 0)
                 throw new ValidationException(failures);

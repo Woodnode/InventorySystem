@@ -37,4 +37,28 @@ public sealed class WarehousesController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<WarehouseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<WarehouseDto>>> GetAll(CancellationToken ct)
         => Ok(await _mediator.Send(new GetWarehousesQuery(), ct));
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = "RequireGestionnaireOrAbove")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Update(Guid id, UpdateWarehouseRequest request, CancellationToken ct)
+    {
+        await _mediator.Send(new UpdateWarehouseCommand(id, request.Name, request.Address), ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Active/désactive plutôt que supprimer : un entrepôt référencé par du stock ou des
+    /// mouvements historiques ne doit jamais disparaître (voir AUDIT.md F-4).
+    /// </summary>
+    [HttpPatch("{id:guid}/active")]
+    [Authorize(Policy = "RequireGestionnaireOrAbove")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetActive(Guid id, SetWarehouseActiveRequest request, CancellationToken ct)
+    {
+        await _mediator.Send(new SetWarehouseActiveCommand(id, request.IsActive), ct);
+        return NoContent();
+    }
 }

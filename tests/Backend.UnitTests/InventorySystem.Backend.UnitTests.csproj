@@ -23,6 +23,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Backend\InventorySystem.Application\InventorySystem.Application.csproj" />
     <ProjectReference Include="..\..\src\Backend\InventorySystem.Domain\InventorySystem.Domain.csproj" />
+    <!-- Nécessaire pour tester ExportService (implémentation concrète, voir AUDIT.md B-T1) -->
+    <ProjectReference Include="..\..\src\Backend\InventorySystem.Infrastructure\InventorySystem.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

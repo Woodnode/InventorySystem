@@ -1,14 +1,14 @@
 using System.Net;
 using FluentValidation;
+using InventorySystem.Application.Common.Exceptions;
 using InventorySystem.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Npgsql;
+using AppException = InventorySystem.Application.Common.Exceptions.ApplicationException;
 
 namespace InventorySystem.Api.Middlewares;
 
 /// <summary>
-/// Gestion centralisée des exceptions : traduit les exceptions métier / de validation
+/// Gestion centralisée des exceptions : traduit Domain / Application / validation
 /// en réponses ProblemDetails normalisées (voir plan §3.4).
 /// </summary>
 public sealed class ExceptionHandlingMiddleware
@@ -33,26 +33,27 @@ public sealed class ExceptionHandlingMiddleware
             await WriteProblemAsync(context, HttpStatusCode.BadRequest, "Erreur de validation",
                 string.Join(" | ", ex.Errors.Select(e => e.ErrorMessage)));
         }
+        catch (AuthenticationException ex)
+        {
+            await WriteProblemAsync(context, HttpStatusCode.Unauthorized, "Authentification échouée", ex.Message);
+        }
+        catch (IdentityOperationException ex)
+        {
+            await WriteProblemAsync(context, HttpStatusCode.BadRequest, "Opération Identity échouée", ex.Message);
+        }
+        catch (ConcurrencyConflictException ex)
+        {
+            // Traduite depuis EF Core / Npgsql dans AppDbContext.SaveChangesAsync (Infrastructure) :
+            // ce middleware Api n'a pas besoin de connaître EF/Npgsql (voir AUDIT.md B-CA1).
+            await WriteProblemAsync(context, HttpStatusCode.Conflict, "Conflit de concurrence", ex.Message);
+        }
+        catch (AppException ex)
+        {
+            await WriteProblemAsync(context, HttpStatusCode.BadRequest, "Erreur applicative", ex.Message);
+        }
         catch (DomainException ex)
         {
             await WriteProblemAsync(context, HttpStatusCode.BadRequest, "Règle métier violée", ex.Message);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            // Un autre mouvement a modifié le même stock entre la lecture et l'écriture
-            // (jeton de concurrence xmin périmé — voir StockConfiguration). Le client peut
-            // réessayer la requête sur l'état à jour.
-            await WriteProblemAsync(context, HttpStatusCode.Conflict, "Conflit de concurrence",
-                "Le stock a été modifié entre-temps par une autre opération. Veuillez réessayer.");
-        }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-        {
-            // Deux requêtes concurrentes ont chacune tenté de créer la ligne de stock initiale
-            // pour le même (ProductId, WarehouseId) — voir StockRepository.GetOrCreateAsync,
-            // qui vérifie "existe déjà ?" puis insère sans verrou. La seconde insertion viole
-            // l'index unique de StockConfiguration ; le client peut réessayer sur l'état à jour.
-            await WriteProblemAsync(context, HttpStatusCode.Conflict, "Conflit de concurrence",
-                "Le stock a déjà été initialisé entre-temps par une autre opération. Veuillez réessayer.");
         }
         catch (Exception ex)
         {
@@ -61,9 +62,6 @@ public sealed class ExceptionHandlingMiddleware
                 "Erreur interne", "Une erreur inattendue est survenue.");
         }
     }
-
-    private static bool IsUniqueViolation(DbUpdateException ex)
-        => ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     private static async Task WriteProblemAsync(
         HttpContext context, HttpStatusCode status, string title, string detail)
