@@ -6,6 +6,7 @@ export const supplierSchema = z.object({
   name: z.string(),
   contactEmail: z.string().nullable(),
   phone: z.string().nullable(),
+  isActive: z.boolean(),
 });
 export type Supplier = z.infer<typeof supplierSchema>;
 
