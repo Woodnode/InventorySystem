@@ -2,10 +2,11 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: inventory-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: inventory
       POSTGRES_USER: inventory
-      POSTGRES_PASSWORD: inventory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?La variable POSTGRES_PASSWORD est manquante, copie .env.example vers .env et renseigne-la.}
     ports:
       - "5432:5432"
     volumes:
@@ -19,9 +20,10 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: inventory-pgadmin
+    restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@inventory.local
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?La variable PGADMIN_PASSWORD est manquante, copie .env.example vers .env et renseigne-la.}
     ports:
       - "5050:80"
     depends_on:
@@ -34,7 +36,7 @@ services:
     container_name: inventory-api
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=inventory;Username=inventory;Password=inventory"
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=inventory;Username=inventory;Password=${POSTGRES_PASSWORD}"
       # Jamais commité — voir .env.example. En local (hors Docker), la même clé vient
       # de `dotnet user-secrets` (voir InventorySystem.Api.csproj).
       Jwt__Key: ${JWT_KEY:?La variable JWT_KEY est manquante — copie .env.example vers .env et renseigne-la (voir README).}

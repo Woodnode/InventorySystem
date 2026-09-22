@@ -37,3 +37,18 @@ appsettings.*.Local.json
 Thumbs.db
 *.swp
 .idea/
+
+# ---------- Profils de publication / bases locales ----------
+*.PublishSettings
+*.pubxml
+*.pubxml.user
+*.db
+*.db-shm
+*.db-wal
+
+# Documentation Markdown interne : seuls les README sont publiés.
+*.md
+!README.md
+
+# ---------- Éditeur ----------
+.vscode/
