@@ -22,9 +22,10 @@ public interface IInventoryApi
     Task<PagedResponse<ProductResponse>> GetProductsAsync(
         int page = 1, int pageSize = 100, CancellationToken ct = default);
 
-    /// <summary>Non paginé côté backend : intrinsèquement borné (seulement les produits sous seuil).</summary>
+    /// <summary>Paginé côté backend — alertes stock bas.</summary>
     [Get("/products/low-stock")]
-    Task<IReadOnlyList<ProductResponse>> GetLowStockAsync(CancellationToken ct = default);
+    Task<PagedResponse<ProductResponse>> GetLowStockAsync(
+        int page = 1, int pageSize = 50, CancellationToken ct = default);
 
     /// <summary>Recherche exacte par SKU — alimente le scan (le code scanné == le SKU).</summary>
     [Get("/products/by-sku/{sku}")]

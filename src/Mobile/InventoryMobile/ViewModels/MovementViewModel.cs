@@ -165,21 +165,24 @@ public sealed partial class MovementViewModel : ObservableObject, IQueryAttribut
             SuccessMessage = "Mouvement enregistré.";
             ResetForm();
         }
-        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
+        catch (ApiException ex) when (
+            ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
         {
-            // Le serveur a été atteint et a explicitement rejeté la requête (règle métier
-            // violée — ex. stock insuffisant, entrepôts identiques). La mettre en file
-            // d'attente échouerait de façon identique plus tard, donc on affiche l'erreur
-            // réelle plutôt que de la stocker offline. Détail lisible produit par
-            // ExceptionHandlingMiddleware côté backend.
+            // Serveur atteint : rejet métier (400) ou conflit (409). Remettre en file
+            // offline échouerait de la même façon — afficher l'erreur, ne pas enqueuer.
             ErrorMessage = await ApiErrorReader.ReadDetailAsync(ex) ?? "Requête invalide.";
+        }
+        catch (ApiException ex) when (
+            ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            // Session expirée / droits insuffisants : ne jamais mettre en file offline
+            // (le sync échouerait en boucle). AuthHeaderHandler gère déjà la redirection login.
+            ErrorMessage = "Session expirée. Veuillez vous reconnecter.";
         }
         catch (Exception)
         {
             // La connectivité semblait disponible (IsConnected valait true) mais l'appel a
-            // quand même échoué (panne de transport, DNS, timeout, session expirée...) : on
-            // considère l'appareil hors-ligne et on met le mouvement en file d'attente
-            // plutôt que de le perdre.
+            // quand même échoué (panne de transport, DNS, timeout) : file d'attente locale.
             await QueueLocallyAsync(clientGuid, toWarehouseId, reason);
         }
         finally

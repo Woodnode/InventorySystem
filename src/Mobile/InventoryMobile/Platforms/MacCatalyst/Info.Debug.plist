@@ -8,7 +8,22 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Cette application utilise l'appareil photo pour scanner les codes-barres et QR codes des produits.</string>
-	<!-- Release : pas d'exception ATS (HTTPS uniquement). -->
+	<!-- Debug : API locale HTTP. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.lifestyle</string>
 	<key>UIRequiredDeviceCapabilities</key>

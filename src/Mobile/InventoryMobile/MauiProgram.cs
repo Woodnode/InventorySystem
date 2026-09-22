@@ -1,5 +1,6 @@
 using InventoryMobile.Application.Auth;
 using InventoryMobile.Application.Connectivity;
+using InventoryMobile.Application.Navigation;
 using InventoryMobile.Application.Notifications;
 using InventoryMobile.Infrastructure;
 using InventoryMobile.Services;
@@ -18,7 +19,7 @@ public static class MauiProgram
 	{
 		// Doit précéder toute utilisation de sqlite-net-pcl (ILocalMovementQueue) : sans cet
 		// appel, la première requête SQLite échoue avec "unable to load e_sqlite3" (bundle
-		// SQLitePCLRaw.bundle_green amené transitivement par sqlite-net-pcl).
+		// SQLitePCLRaw.bundle_e_sqlite3 — voir InventoryMobile.Infrastructure.csproj).
 		Batteries_V2.Init();
 
 		var builder = MauiApp.CreateBuilder();
@@ -42,6 +43,11 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ITokenStore, SecureStorageTokenStore>();
 		builder.Services.AddSingleton<IConnectivityChecker, MauiConnectivityChecker>();
 		builder.Services.AddSingleton<ILocalNotificationService, PluginLocalNotificationService>();
+		builder.Services.AddSingleton<INavigationService, MauiNavigationService>();
+		builder.Services.AddSingleton<ISessionExpiredNotifier, MauiSessionExpiredNotifier>();
+		// Écoute app-wide (login -> logout), pas seulement pendant que ProductsPage est
+		// affichée — voir AUDIT.md M-4.
+		builder.Services.AddSingleton<IStockAlertSessionListener, StockAlertSessionListener>();
 
 		var localDatabasePath = Path.Combine(FileSystem.AppDataDirectory, "inventory_offline.db3");
 		builder.Services.AddInventoryInfrastructure(ApiConfig.BaseUrl, localDatabasePath, ApiConfig.StockHubUrl);

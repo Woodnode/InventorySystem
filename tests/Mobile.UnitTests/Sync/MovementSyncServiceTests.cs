@@ -93,7 +93,7 @@ public sealed class MovementSyncServiceTests
     }
 
     [Fact]
-    public async Task SyncPendingAsync_OneItemRejectedByServer_LeavesItPendingAndContinuesToNext()
+    public async Task SyncPendingAsync_OneItemRejectedByServer_DiscardsItAndContinuesToNext()
     {
         var rejected = NewLocalMovement();
         var accepted = NewLocalMovement();
@@ -106,9 +106,10 @@ public sealed class MovementSyncServiceTests
 
         var result = await CreateService().SyncPendingAsync();
 
+        // BadRequest = rejet définitif → retiré de la file (anti-poison) + suite du sync.
         result.SyncedCount.Should().Be(1);
-        result.RemainingPendingCount.Should().Be(1);
-        _queue.Verify(q => q.MarkSyncedAsync(rejected.ClientGuid), Times.Never);
+        result.RemainingPendingCount.Should().Be(0);
+        _queue.Verify(q => q.MarkSyncedAsync(rejected.ClientGuid), Times.Once);
         _queue.Verify(q => q.MarkSyncedAsync(accepted.ClientGuid), Times.Once);
     }
 

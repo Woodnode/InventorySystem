@@ -16,11 +16,6 @@ public partial class LoginPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
-        // Session déjà persistée (SecureStorage) : pas besoin de redemander les identifiants.
-        if (await _viewModel.TryRestoreSessionAsync())
-        {
-            await Shell.Current.GoToAsync("//products");
-        }
+        await _viewModel.InitializeAsync();
     }
 }

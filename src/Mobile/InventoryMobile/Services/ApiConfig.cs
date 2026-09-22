@@ -1,22 +1,48 @@
+using System.Reflection;
+
 namespace InventoryMobile.Services;
 
 /// <summary>
-/// Résout l'URL de base de l'API selon la plateforme (plan §8.4). Deux pièges MAUI classiques
-/// évités ici :
-///  - Sur l'émulateur Android, "localhost" pointe vers l'émulateur lui-même, pas la machine
-///    hôte : il faut l'alias spécial 10.0.2.2.
-///  - Le certificat HTTPS de développement ASP.NET Core n'est pas approuvé par défaut sur un
-///    émulateur/simulateur, ce qui casse TLS. On utilise donc le profil HTTP (port 5244,
-///    déjà exposé par launchSettings.json) pour ce jalon local/démo — jamais en production.
+/// Résout l'URL de base de l'API selon la plateforme (plan §8.4).
+/// DEBUG : HTTP local (certificat HTTPS de dev non approuvé sur émulateur).
+/// RELEASE : HTTPS production — valeur injectée à la COMPILATION via la propriété MSBuild
+/// <c>InventoryApiHost</c> (ex. <c>dotnet publish -p:InventoryApiHost=https://api.monentreprise.com</c>,
+/// voir InventoryMobile.csproj), PAS lue depuis une variable d'environnement au runtime.
+/// Une variable d'environnement OS n'existe pour aucun mécanisme sur un binaire Android/iOS
+/// installé — un correctif précédent basé sur <c>Environment.GetEnvironmentVariable</c>
+/// rendait donc toute build Release inutilisable sur ces plateformes (voir ré-audit).
 /// </summary>
 public static class ApiConfig
 {
-    public static string BaseUrl => DeviceInfo.Platform == DevicePlatform.Android
-        ? "http://10.0.2.2:5244/api/v1/"
-        : "http://localhost:5244/api/v1/";
+#if DEBUG
+    private static string ResolveHost() => DeviceInfo.Platform == DevicePlatform.Android
+        ? "http://10.0.2.2:5244"
+        : "http://localhost:5244";
+#else
+    private static string ResolveHost()
+    {
+        var fromAssembly = Assembly.GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == "InventoryApiHost")?.Value;
 
-    /// <summary>Hub SignalR StockHub (alertes de stock bas) — mêmes contraintes réseau que <see cref="BaseUrl"/>.</summary>
-    public static string StockHubUrl => DeviceInfo.Platform == DevicePlatform.Android
-        ? "http://10.0.2.2:5244/hubs/stock"
-        : "http://localhost:5244/hubs/stock";
+        if (!string.IsNullOrWhiteSpace(fromAssembly))
+            return fromAssembly.Trim().TrimEnd('/');
+
+        // Pas d'hôte de production par défaut : un faux placeholder (ex.
+        // api.inventory.example.com) laisserait une build Release silencieusement pointer
+        // vers un serveur qui n'existe pas. Mieux vaut échouer bruyamment au démarrage
+        // qu'échouer silencieusement sur chaque appel réseau.
+        throw new InvalidOperationException(
+            "La propriété MSBuild InventoryApiHost doit être fournie à la compilation pour " +
+            "une build Release (ex. dotnet publish -p:InventoryApiHost=https://api.mondeploiement.com, " +
+            "sans slash final) — voir InventoryMobile.csproj et ApiConfig.cs.");
+    }
+#endif
+
+    private static string Host { get; } = ResolveHost();
+
+    public static string BaseUrl => $"{Host}/api/v1/";
+
+    /// <summary>Hub SignalR StockHub — mêmes contraintes réseau que <see cref="BaseUrl"/>.</summary>
+    public static string StockHubUrl => $"{Host}/hubs/stock";
 }

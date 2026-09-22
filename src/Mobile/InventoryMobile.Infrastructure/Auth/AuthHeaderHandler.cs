@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -7,13 +8,8 @@ using InventoryMobile.Infrastructure.Api;
 namespace InventoryMobile.Infrastructure.Auth;
 
 /// <summary>
-/// Ajoute automatiquement l'en-tête <c>Authorization: Bearer</c> à chaque requête, et
-/// rafraîchit le token de manière PROACTIVE (avant qu'il n'expire) plutôt que réactive
-/// (retenter après un 401) : plus simple à implémenter correctement côté client HTTP
-/// (pas besoin de cloner une requête déjà envoyée) et suffisant pour ce jalon.
-///
-/// Dépend uniquement de <see cref="ITokenStore"/> (pas de <see cref="IAuthService"/>) pour
-/// éviter un cycle de DI : IAuthService -> IInventoryApi -> HttpClient -> ce handler.
+/// Ajoute l'en-tête Bearer, rafraîchit de façon proactive, et sur 401 tente
+/// <b>une</b> fois un refresh + retry avant d'expirer la session.
 /// </summary>
 public sealed class AuthHeaderHandler : DelegatingHandler
 {
@@ -27,30 +23,81 @@ public sealed class AuthHeaderHandler : DelegatingHandler
     private static readonly TimeSpan ExpiryMargin = TimeSpan.FromMinutes(1);
 
     private readonly ITokenStore _tokenStore;
+    private readonly Lazy<IAuthService> _authService;
+    private readonly Lazy<ISessionExpiredNotifier> _sessionExpired;
     private readonly string _apiBaseUrl;
+    private readonly HttpMessageHandler? _refreshHandler;
 
-    public AuthHeaderHandler(ITokenStore tokenStore, string apiBaseUrl)
+    public AuthHeaderHandler(
+        ITokenStore tokenStore,
+        Lazy<IAuthService> authService,
+        Lazy<ISessionExpiredNotifier> sessionExpired,
+        string apiBaseUrl,
+        HttpMessageHandler? refreshHandler = null)
     {
         _tokenStore = tokenStore;
+        _authService = authService;
+        _sessionExpired = sessionExpired;
         _apiBaseUrl = apiBaseUrl;
+        // Optionnel : null en production (comportement HttpClient par défaut, inchangé),
+        // injectable en test pour éviter un vrai appel réseau lors du refresh — voir
+        // AuthHeaderHandlerTests (AUDIT.md M-2).
+        _refreshHandler = refreshHandler;
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
+        => await SendAuthenticatedAsync(request, cancellationToken, allowRetryOn401: true);
+
+    private async Task<HttpResponseMessage> SendAuthenticatedAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken, bool allowRetryOn401)
     {
+        // Permet un éventuel retry 401 (le body doit pouvoir être relu).
+        if (request.Content is not null)
+            await request.Content.LoadIntoBufferAsync(cancellationToken);
+
         var session = await _tokenStore.LoadAsync();
 
         if (session is not null && session.IsExpiredOrExpiringSoon(ExpiryMargin))
-        {
-            session = await TryRefreshAsync(session.RefreshToken, cancellationToken) ?? session;
-        }
+            session = await TryRefreshAsync(session.RefreshToken, cancellationToken);
 
         if (session is not null)
-        {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+
+        var response = await base.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+            return response;
+
+        if (!allowRetryOn401)
+        {
+            await ExpireSessionAsync();
+            return response;
         }
 
-        return await base.SendAsync(request, cancellationToken);
+        // 401 alors que le token ne semblait pas expiré : tenter un refresh + un seul retry.
+        var current = await _tokenStore.LoadAsync();
+        if (current is null)
+        {
+            await ExpireSessionAsync();
+            return response;
+        }
+
+        response.Dispose();
+        var refreshed = await TryRefreshAsync(current.RefreshToken, cancellationToken);
+        if (refreshed is null)
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+
+        using var retry = await CloneAsync(request, cancellationToken);
+        retry.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshed.AccessToken);
+        return await SendAuthenticatedAsync(retry, cancellationToken, allowRetryOn401: false);
+    }
+
+    private async Task ExpireSessionAsync()
+    {
+        await _tokenStore.ClearAsync();
+        _authService.Value.ApplySession(null);
+        _sessionExpired.Value.NotifySessionExpired();
     }
 
     private async Task<AuthSession?> TryRefreshAsync(string refreshToken, CancellationToken ct)
@@ -58,40 +105,61 @@ public sealed class AuthHeaderHandler : DelegatingHandler
         await RefreshLock.WaitAsync(ct);
         try
         {
-            // Une autre requête a peut-être déjà rafraîchi pendant l'attente du verrou.
             var latest = await _tokenStore.LoadAsync();
             if (latest is not null && !latest.IsExpiredOrExpiringSoon(ExpiryMargin))
             {
+                _authService.Value.ApplySession(latest);
                 return latest;
             }
 
-            // Client HTTP brut (pas le Refit injecté, qui repasserait par ce handler) :
-            // seul l'appel de rafraîchissement lui-même échappe au cycle d'auth.
-            using var refreshClient = new HttpClient { BaseAddress = new Uri(_apiBaseUrl) };
+            using var refreshClient = _refreshHandler is not null
+                ? new HttpClient(_refreshHandler, disposeHandler: false) { BaseAddress = new Uri(_apiBaseUrl) }
+                : new HttpClient { BaseAddress = new Uri(_apiBaseUrl) };
             using var response = await refreshClient.PostAsJsonAsync(
                 "auth/refresh", new RefreshTokenRequest(refreshToken), JsonOptions, ct);
 
             if (!response.IsSuccessStatusCode)
             {
-                // Refresh token révoqué/expiré : plus rien à faire ici que nettoyer — la
-                // prochaine action utilisateur recevra un 401 et sera renvoyée au login.
-                await _tokenStore.ClearAsync();
+                await ExpireSessionAsync();
                 return null;
             }
 
             var result = await response.Content.ReadFromJsonAsync<AuthResultResponse>(JsonOptions, ct);
-            if (result is null) return null;
+            if (result is null)
+            {
+                await ExpireSessionAsync();
+                return null;
+            }
 
             var refreshed = new AuthSession(
                 result.AccessToken, result.AccessTokenExpiresAtUtc, result.RefreshToken,
                 result.Email, result.DisplayName, result.Roles);
 
             await _tokenStore.SaveAsync(refreshed);
+            _authService.Value.ApplySession(refreshed);
             return refreshed;
         }
         finally
         {
             RefreshLock.Release();
         }
+    }
+
+    private static async Task<HttpRequestMessage> CloneAsync(
+        HttpRequestMessage request, CancellationToken ct)
+    {
+        var clone = new HttpRequestMessage(request.Method, request.RequestUri);
+        foreach (var header in request.Headers)
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+        if (request.Content is not null)
+        {
+            var bytes = await request.Content.ReadAsByteArrayAsync(ct);
+            clone.Content = new ByteArrayContent(bytes);
+            foreach (var header in request.Content.Headers)
+                clone.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        return clone;
     }
 }
