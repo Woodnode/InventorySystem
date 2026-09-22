@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { apiClient, ensureFreshAccessToken } from '../../shared/api-client/client';
 import {
   clearAuth,
@@ -12,56 +12,68 @@ import { authResultSchema, type LoginInput, type RegisterInput } from './types';
 import { AuthContext } from './useAuth';
 
 /**
- * État d'authentification global. S'abonne à tokenStorage (source de vérité partagée
- * avec l'intercepteur axios, hors arbre React — voir shared/auth/tokenStorage.ts) pour
- * re-render automatiquement après un login/logout/refresh silencieux.
+ * État d'authentification global. Un seul chemin de refresh silencieux :
+ * `isInitializing` passe à true au boot ou quand un autre onglet laisse accessToken vide.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuthState] = useState<StoredAuth | null>(getAuth());
-  // L'access token ne survit jamais à un rechargement de page (voir tokenStorage.ts) :
-  // s'il reste un refresh token mais pas d'access token, la session existe mais n'est
-  // pas encore utilisable — le temps d'un refresh silencieux avant de rendre les pages
-  // protégées (sinon des composants comme useLowStockAlerts démarreraient sans token).
-  const [isInitializing, setIsInitializing] = useState(() => !!auth?.refreshToken && !auth.accessToken);
+  const [isInitializing, setIsInitializing] = useState(
+    () => !!getAuth()?.refreshToken && !getAuth()?.accessToken,
+  );
 
-  useEffect(() => subscribe(setAuthState), []);
+  useEffect(() => {
+    return subscribe((next) => {
+      setAuthState(next);
+      // Multi-onglets / storage : refresh token présent, access encore vide → relancer le boot refresh.
+      if (next?.refreshToken && !next.accessToken) {
+        setIsInitializing(true);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!isInitializing) return;
+
+    let cancelled = false;
     ensureFreshAccessToken()
-      .catch(() => clearAuth())
-      .finally(() => setIsInitializing(false));
+      .catch(() => {
+        if (!cancelled) clearAuth();
+      })
+      .finally(() => {
+        if (!cancelled) setIsInitializing(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isInitializing]);
 
-  async function login(input: LoginInput): Promise<void> {
+  const login = useCallback(async (input: LoginInput): Promise<void> => {
     const { data } = await apiClient.post('/auth/login', input);
     setAuth(authResultSchema.parse(data));
-  }
+  }, []);
 
-  async function register(input: RegisterInput): Promise<void> {
-    // Auto-inscription toujours en rôle Employe — voir AuthController côté backend :
-    // seul un Admin déjà connecté peut créer un compte Gestionnaire/Admin.
+  const register = useCallback(async (input: RegisterInput): Promise<void> => {
     const { data } = await apiClient.post('/auth/register', { ...input, role: 'Employe' });
     setAuth(authResultSchema.parse(data));
-  }
+  }, []);
 
-  function logout(): void {
+  const logout = useCallback((): void => {
     clearAuth();
-  }
+  }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        auth,
-        isAuthenticated: auth !== null,
-        isInitializing,
-        login,
-        register,
-        logout,
-        hasAtLeastRole: hasAtLeastRoleFromStorage,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      auth,
+      isAuthenticated: auth !== null,
+      isInitializing,
+      login,
+      register,
+      logout,
+      hasAtLeastRole: hasAtLeastRoleFromStorage,
+    }),
+    [auth, isInitializing, login, register, logout],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

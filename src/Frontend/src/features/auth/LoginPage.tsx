@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Field } from '../../shared/components/Field';
 import { getErrorMessage } from '../../shared/api-client/errorMessage';
 import { useAuth } from './useAuth';
 import { loginSchema, registerSchema, type LoginInput, type RegisterInput } from './types';
+import './LoginPage.css';
 
 /** Écran de connexion + inscription (voir plan §7). */
 export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const { login, register: registerAccount } = useAuth();
+  const { login, register: registerAccount, isAuthenticated, isInitializing } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -19,6 +20,22 @@ export function LoginPage() {
 
   const loginForm = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
   const registerForm = useForm<RegisterInput>({ resolver: zodResolver(registerSchema) });
+
+  // Un refresh token persisté déclenche un refresh silencieux au montage (voir AuthContext) :
+  // tant qu'il est en vol, on ne sait pas encore si la session est valide. Sans ce garde, le
+  // formulaire de connexion s'affichait brièvement avant la redirection vers /dashboard pour
+  // un utilisateur déjà connecté qui recharge la page (voir AUDIT.md F-1).
+  if (isInitializing) {
+    return (
+      <div className="auth-wrapper">
+        <p style={{ color: 'white', fontWeight: 500 }}>Chargement…</p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to={redirectTo} replace />;
+  }
 
   async function onLogin(input: LoginInput) {
     setServerError(null);
@@ -41,71 +58,89 @@ export function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-        Système d'inventaire
-      </h1>
-      <p className="mt-1 text-sm text-slate-500">
-        {mode === 'login' ? 'Connecte-toi pour continuer.' : 'Crée un compte (rôle Employé).'}
-      </p>
+    <div className="auth-wrapper">
+      <div className="auth-glass-card">
+        <div className="auth-header">
+          <h1 className="auth-title">Système d'inventaire</h1>
+          <p className="auth-subtitle">
+            {mode === 'login' ? 'Bienvenue, veuillez vous connecter.' : 'Créez votre compte collaborateur.'}
+          </p>
+        </div>
 
-      {serverError && (
-        <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{serverError}</p>
-      )}
+        {serverError && <div className="auth-error-msg">{serverError}</div>}
 
-      {mode === 'login' ? (
-        <form className="mt-6 flex flex-col gap-4" onSubmit={loginForm.handleSubmit(onLogin)}>
-          <Field label="Email" error={loginForm.formState.errors.email?.message}>
-            <input
-              type="email"
-              className="input"
-              autoComplete="email"
-              {...loginForm.register('email')}
-            />
-          </Field>
-          <Field label="Mot de passe" error={loginForm.formState.errors.password?.message}>
-            <input
-              type="password"
-              className="input"
-              autoComplete="current-password"
-              {...loginForm.register('password')}
-            />
-          </Field>
-          <button type="submit" className="btn-primary" disabled={loginForm.formState.isSubmitting}>
-            {loginForm.formState.isSubmitting ? 'Connexion…' : 'Se connecter'}
-          </button>
-        </form>
-      ) : (
-        <form className="mt-6 flex flex-col gap-4" onSubmit={registerForm.handleSubmit(onRegister)}>
-          <Field label="Nom" error={registerForm.formState.errors.displayName?.message}>
-            <input className="input" {...registerForm.register('displayName')} />
-          </Field>
-          <Field label="Email" error={registerForm.formState.errors.email?.message}>
-            <input type="email" className="input" {...registerForm.register('email')} />
-          </Field>
-          <Field label="Mot de passe" error={registerForm.formState.errors.password?.message}>
-            <input type="password" className="input" {...registerForm.register('password')} />
-          </Field>
+        {mode === 'login' ? (
+          <form className="auth-form" onSubmit={loginForm.handleSubmit(onLogin)}>
+            <Field label="Email" error={loginForm.formState.errors.email?.message}>
+              <input
+                type="email"
+                className="auth-input-custom"
+                autoComplete="email"
+                placeholder="nom@entreprise.com"
+                {...loginForm.register('email')}
+              />
+            </Field>
+            <Field label="Mot de passe" error={loginForm.formState.errors.password?.message}>
+              <input
+                type="password"
+                className="auth-input-custom"
+                autoComplete="current-password"
+                placeholder="Votre mot de passe"
+                {...loginForm.register('password')}
+              />
+            </Field>
+            <button type="submit" className="auth-submit-btn" disabled={loginForm.formState.isSubmitting}>
+              {loginForm.formState.isSubmitting ? 'Connexion en cours…' : 'Se connecter'}
+            </button>
+          </form>
+        ) : (
+          <form className="auth-form" onSubmit={registerForm.handleSubmit(onRegister)}>
+            <Field label="Nom" error={registerForm.formState.errors.displayName?.message}>
+              <input 
+                className="auth-input-custom" 
+                placeholder="Jean Dupont"
+                {...registerForm.register('displayName')} 
+              />
+            </Field>
+            <Field label="Email" error={registerForm.formState.errors.email?.message}>
+              <input 
+                type="email" 
+                className="auth-input-custom" 
+                placeholder="jean.dupont@entreprise.com"
+                {...registerForm.register('email')} 
+              />
+            </Field>
+            <Field label="Mot de passe" error={registerForm.formState.errors.password?.message}>
+              <input 
+                type="password" 
+                className="auth-input-custom" 
+                placeholder="Au moins 8 caractères"
+                {...registerForm.register('password')} 
+              />
+            </Field>
+            <button
+              type="submit"
+              className="auth-submit-btn"
+              disabled={registerForm.formState.isSubmitting}
+            >
+              {registerForm.formState.isSubmitting ? 'Création en cours…' : 'Créer le compte'}
+            </button>
+          </form>
+        )}
+
+        <div className="auth-switch-container">
           <button
-            type="submit"
-            className="btn-primary"
-            disabled={registerForm.formState.isSubmitting}
+            type="button"
+            className="auth-switch-btn"
+            onClick={() => {
+              setServerError(null);
+              setMode((m) => (m === 'login' ? 'register' : 'login'));
+            }}
           >
-            {registerForm.formState.isSubmitting ? 'Création…' : 'Créer le compte'}
+            {mode === 'login' ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
           </button>
-        </form>
-      )}
-
-      <button
-        type="button"
-        className="mt-4 text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700"
-        onClick={() => {
-          setServerError(null);
-          setMode((m) => (m === 'login' ? 'register' : 'login'));
-        }}
-      >
-        {mode === 'login' ? "Pas de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
-      </button>
-    </main>
+        </div>
+      </div>
+    </div>
   );
 }

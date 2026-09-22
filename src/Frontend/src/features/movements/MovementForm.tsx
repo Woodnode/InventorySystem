@@ -12,6 +12,10 @@ import { useRecordMovement } from './useMovements';
  */
 export function MovementForm({ productId }: { productId: string }) {
   const { data: warehouses } = useWarehouses();
+  // Un entrepôt désactivé ne doit plus pouvoir recevoir de nouveaux mouvements — sinon
+  // "désactiver" (plutôt que supprimer) ne protège rien (voir ré-audit). L'historique, lui,
+  // continue de résoudre les noms des entrepôts inactifs via warehouseNameLookup, non filtré.
+  const activeWarehouses = warehouses?.filter((w) => w.isActive);
   const recordMovement = useRecordMovement();
 
   const form = useForm<RecordMovementInput>({
@@ -22,19 +26,24 @@ export function MovementForm({ productId }: { productId: string }) {
   const type = form.watch('type');
 
   async function onSubmit(input: RecordMovementInput) {
-    await recordMovement.mutateAsync({ ...input, productId });
-    // On garde productId + type (permet d'enchaîner plusieurs saisies du même type sans
-    // rescroller à chaque fois) ; tout le reste doit être explicitement resaisi pour éviter
-    // de réutiliser silencieusement un entrepôt ou un motif périmé (form.reset() ne
-    // réinitialise que les clés qu'on lui passe, voir ProductsPage pour le même écueil).
-    form.reset({
-      productId,
-      type: input.type,
-      quantity: 1,
-      warehouseId: '',
-      toWarehouseId: '',
-      reason: '',
-    });
+    try {
+      await recordMovement.mutateAsync({ ...input, productId });
+      // On garde productId + type (permet d'enchaîner plusieurs saisies du même type sans
+      // rescroller à chaque fois) ; tout le reste doit être explicitement resaisi pour éviter
+      // de réutiliser silencieusement un entrepôt ou un motif périmé (form.reset() ne
+      // réinitialise que les clés qu'on lui passe, voir ProductsPage pour le même écueil).
+      form.reset({
+        productId,
+        type: input.type,
+        quantity: 1,
+        warehouseId: '',
+        toWarehouseId: '',
+        reason: '',
+      });
+    } catch {
+      // Erreur déjà exposée via recordMovement.isError (bannière ci-dessous) ; catch
+      // uniquement pour éviter un rejet de promesse non géré (voir ré-audit).
+    }
   }
 
   return (
@@ -57,7 +66,7 @@ export function MovementForm({ productId }: { productId: string }) {
         </span>
         <select className="input" {...form.register('warehouseId')}>
           <option value="">— choisir —</option>
-          {warehouses?.map((w) => (
+          {activeWarehouses?.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
             </option>
@@ -73,7 +82,7 @@ export function MovementForm({ productId }: { productId: string }) {
           <span className="font-medium text-slate-700">Entrepôt destination</span>
           <select className="input" {...form.register('toWarehouseId')}>
             <option value="">— choisir —</option>
-            {warehouses?.map((w) => (
+            {activeWarehouses?.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
               </option>

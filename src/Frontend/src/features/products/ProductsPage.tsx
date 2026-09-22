@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'react-router-dom';
@@ -12,7 +12,13 @@ import { getErrorMessage } from '../../shared/api-client/errorMessage';
 import { useWarehouses } from '../warehouses/useWarehouses';
 import { useSuppliers } from '../suppliers/useSuppliers';
 import { createProductSchema, type CreateProductInput } from './types';
-import { exportProducts, useCreateProduct, useProducts } from './useProducts';
+import { exportProducts, useCreateProduct, useProducts, useImportProducts, type ProductSortBy } from './useProducts';
+
+const sortOptions: { value: ProductSortBy; label: string }[] = [
+  { value: 'Name', label: 'Nom' },
+  { value: 'Sku', label: 'SKU' },
+  { value: 'Quantity', label: 'Quantité' },
+];
 
 // Valeurs par défaut du formulaire — utilisées à la fois à l'initialisation et après
 // une création réussie. Doit lister TOUS les champs : `form.reset(values)` ne réinitialise
@@ -25,14 +31,60 @@ const emptyProductForm: CreateProductInput = {
   warehouseId: '',
   initialQuantity: 0,
   supplierId: '',
+  boxesCount: 0,
+  copiesPerBox: 0,
 };
 
 export function ProductsPage() {
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, error } = useProducts(page);
+
+  // Recherche texte (SKU ou nom) : débouncée pour éviter une requête par frappe.
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [minQuantity, setMinQuantity] = useState('');
+  const [maxQuantity, setMaxQuantity] = useState('');
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<ProductSortBy>('Name');
+  const [sortDescending, setSortDescending] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+
+  // Tout changement de filtre ou de tri invalide la page courante (la page 3 d'une
+  // recherche précédente n'a aucun sens pour de nouveaux critères).
+  useEffect(() => {
+    setPage(1);
+  }, [search, minQuantity, maxQuantity, lowStockOnly, sortBy, sortDescending]);
+
+  const hasActiveFilters = search !== '' || minQuantity !== '' || maxQuantity !== '' || lowStockOnly;
+
+  function resetFilters() {
+    setSearchInput('');
+    setSearch('');
+    setMinQuantity('');
+    setMaxQuantity('');
+    setLowStockOnly(false);
+  }
+
+  const { data, isLoading, isError, error } = useProducts(page, undefined, {
+    search: search || undefined,
+    minQuantity: minQuantity === '' ? undefined : Number(minQuantity),
+    maxQuantity: maxQuantity === '' ? undefined : Number(maxQuantity),
+    lowStockOnly,
+    sortBy,
+    sortDescending,
+  });
   const { data: warehouses } = useWarehouses();
+  // Un entrepôt désactivé ne doit pas pouvoir recevoir un nouveau produit (voir ré-audit).
+  const activeWarehouses = warehouses?.filter((w) => w.isActive);
   const { data: suppliers } = useSuppliers();
+  const activeSuppliers = suppliers?.filter((s) => s.isActive);
   const createProduct = useCreateProduct();
+  
+  const importProducts = useImportProducts();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CreateProductInput>({
     resolver: zodResolver(createProductSchema),
@@ -40,21 +92,56 @@ export function ProductsPage() {
   });
 
   async function onSubmit(input: CreateProductInput) {
-    await createProduct.mutateAsync(input);
-    form.reset(emptyProductForm);
+    try {
+      await createProduct.mutateAsync(input);
+      form.reset(emptyProductForm);
+    } catch {
+      // L'erreur est déjà exposée via createProduct.isError/error (bannière ci-dessous) ;
+      // le catch ici évite juste un rejet de promesse non géré (voir ré-audit).
+    }
   }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const result = await importProducts.mutateAsync(file);
+        alert(`Import terminé !\nProduits créés: ${result.productsCreated}\nProduits existants mis à jour: ${result.productsUpdated}\nErreurs: ${result.errors.length}`);
+      } catch (err) {
+        alert("Erreur lors de l'import: " + getErrorMessage(err, "Échec de l'import."));
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Produits</h1>
-        <ExportButtons onExport={exportProducts} />
+        <div className="flex items-center gap-2">
+          <input type="file" accept=".csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="hidden" ref={fileInputRef} onChange={handleImport} />
+          <button 
+            className="btn-secondary flex gap-2 items-center" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importProducts.isPending}
+          >
+            {importProducts.isPending ? (
+               <span className="w-4 h-4 rounded-full border-2 border-slate-400 border-t-slate-700 animate-spin"></span>
+            ) : (
+               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            )}
+            Importer CSV / Excel
+          </button>
+          <ExportButtons onExport={exportProducts} />
+        </div>
       </div>
 
       <RequireRole role="Gestionnaire">
-        {warehouses && warehouses.length === 0 ? (
+        {activeWarehouses && activeWarehouses.length === 0 ? (
           <p className="mt-6 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-            Crée d'abord un entrepôt avant de pouvoir ajouter un produit.
+            Crée (ou réactive) d'abord un entrepôt avant de pouvoir ajouter un produit.
           </p>
         ) : (
           <form
@@ -80,7 +167,7 @@ export function ProductsPage() {
             <Field label="Entrepôt" error={form.formState.errors.warehouseId?.message}>
               <select className="input" {...form.register('warehouseId')}>
                 <option value="">— choisir —</option>
-                {warehouses?.map((w) => (
+                {activeWarehouses?.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
                   </option>
@@ -97,7 +184,7 @@ export function ProductsPage() {
             <Field label="Fournisseur (optionnel)">
               <select className="input" {...form.register('supplierId')}>
                 <option value="">— aucun —</option>
-                {suppliers?.map((s) => (
+                {activeSuppliers?.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
@@ -118,12 +205,95 @@ export function ProductsPage() {
         )}
       </RequireRole>
 
+      <div className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="flex flex-1 flex-col gap-1 text-sm sm:min-w-[220px]">
+          <label htmlFor="product-search" className="font-medium text-slate-700">
+            Recherche (SKU ou nom)
+          </label>
+          <input
+            id="product-search"
+            type="text"
+            className="input"
+            placeholder="Ex. 00181 ou Défi avant les fêtes"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1 text-sm">
+          <label htmlFor="product-min-qty" className="font-medium text-slate-700">
+            Quantité min.
+          </label>
+          <input
+            id="product-min-qty"
+            type="number"
+            min={0}
+            className="input w-28"
+            value={minQuantity}
+            onChange={(e) => setMinQuantity(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1 text-sm">
+          <label htmlFor="product-max-qty" className="font-medium text-slate-700">
+            Quantité max.
+          </label>
+          <input
+            id="product-max-qty"
+            type="number"
+            min={0}
+            className="input w-28"
+            value={maxQuantity}
+            onChange={(e) => setMaxQuantity(e.target.value)}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 pb-2 sm:pb-2.5">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300"
+            checked={lowStockOnly}
+            onChange={(e) => setLowStockOnly(e.target.checked)}
+          />
+          Stock bas uniquement
+        </label>
+        <div className="flex flex-col gap-1 text-sm">
+          <label htmlFor="product-sort-by" className="font-medium text-slate-700">
+            Trier par
+          </label>
+          <div className="flex gap-1">
+            <select
+              id="product-sort-by"
+              className="input"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as ProductSortBy)}
+            >
+              {sortOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn-secondary px-3"
+              title={sortDescending ? 'Décroissant' : 'Croissant'}
+              onClick={() => setSortDescending((d) => !d)}
+            >
+              {sortDescending ? '↓' : '↑'}
+            </button>
+          </div>
+        </div>
+        {hasActiveFilters && (
+          <button type="button" className="btn-secondary text-sm" onClick={resetFilters}>
+            Réinitialiser
+          </button>
+        )}
+      </div>
+
       <QueryState
         isLoading={isLoading}
         isError={isError}
         error={error}
         isEmpty={data?.items.length === 0}
-        emptyMessage="Aucun produit pour l'instant."
+        emptyMessage={hasActiveFilters ? 'Aucun produit ne correspond à ces critères.' : "Aucun produit pour l'instant."}
       />
 
       {data && data.items.length > 0 && (
@@ -133,11 +303,18 @@ export function ProductsPage() {
             keyOf={(p) => p.id}
             renderItem={(p) => (
               <>
-                <Link to={`/products/${p.id}`} className="font-medium text-slate-800 hover:underline">
-                  {p.name} <span className="text-slate-400">· {p.sku}</span>
-                </Link>
+                <div className="flex flex-col">
+                  <Link to={`/products/${p.id}`} className="font-medium text-slate-800 hover:underline">
+                    {p.name} <span className="text-slate-400">· {p.sku}</span>
+                  </Link>
+                  <div className="flex gap-2 mt-1 text-xs text-slate-500">
+                    {p.collection && <span className="bg-slate-100 px-2 py-0.5 rounded">{p.collection}</span>}
+                    {p.productType && <span className="bg-slate-100 px-2 py-0.5 rounded">{p.productType}</span>}
+                    {p.year && <span className="bg-slate-100 px-2 py-0.5 rounded">{p.year}</span>}
+                  </div>
+                </div>
                 <span className={`font-mono text-sm ${p.isLowOnStock ? 'text-rose-600' : 'text-slate-600'}`}>
-                  {p.quantity} / seuil {p.lowStockThreshold}
+                  {p.quantity} restants
                 </span>
               </>
             )}

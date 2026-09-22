@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+@layer base {
+  body {
+    min-height: 100vh;
+    overflow-y: scroll;
+    /* Very subtle gradient, lighter than login page for content readability */
+    background: linear-gradient(-45deg, #f4fdf8, #f8fafc, #f0f9ff, #f8faff);
+    @apply antialiased text-slate-900;
+  }
+}
+
 @layer components {
   .input {
     @apply w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900
@@ -15,5 +25,21 @@
   .btn-secondary {
     @apply rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700
       hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #qr-print-section, #qr-print-section * {
+    visibility: visible;
+  }
+  #qr-print-section {
+    position: absolute;
+    left: 2rem;
+    top: 2rem;
+    transform: scale(2);
+    transform-origin: top left;
   }
 }

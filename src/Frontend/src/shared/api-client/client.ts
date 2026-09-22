@@ -5,8 +5,13 @@ import { clearAuth, getAuth, setAuth, type StoredAuth } from '../auth/tokenStora
  * Client HTTP typé consommant la même API REST ASP.NET Core que l'app mobile.
  * L'intercepteur attache le JWT et gère le refresh automatique sur 401 (voir plan §7).
  */
+let apiUrl = import.meta.env.VITE_API_URL ?? 'https://localhost:7296/api/v1';
+if (window.location.hostname === '10.0.2.2') {
+  apiUrl = 'http://10.0.2.2:5244/api/v1';
+}
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'https://localhost:7296/api/v1',
+  baseURL: apiUrl,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -55,15 +60,24 @@ interface RetryableConfig extends InternalAxiosRequestConfig {
   _retried?: boolean;
 }
 
+// Liste explicite plutôt qu'un match par sous-chaîne sur '/auth/' : un futur endpoint
+// protégé nommé sous /auth/* (ex. /auth/me, /auth/change-password) doit continuer à
+// bénéficier du refresh-and-retry silencieux, pas être traité comme login/register/refresh
+// eux-mêmes (voir ré-audit).
+const AUTH_ENDPOINTS_WITHOUT_RETRY = ['/auth/login', '/auth/register', '/auth/refresh'];
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const config = error.config as RetryableConfig | undefined;
-    const isAuthEndpoint = config?.url?.includes('/auth/');
+    const isAuthEndpoint = AUTH_ENDPOINTS_WITHOUT_RETRY.some((path) => config?.url?.includes(path));
 
     if (error.response?.status !== 401 || !config || config._retried || isAuthEndpoint) {
-      if (error.response?.status === 401) {
-        // Refresh déjà tenté (ou endpoint d'auth lui-même) : session vraiment expirée.
+      // Un 401 sur /auth/login|register|refresh n'est jamais une session expirée : c'est
+      // un mauvais mot de passe ou un refresh token invalide. On laisse l'appelant (le
+      // formulaire) gérer l'erreur lui-même plutôt que de forcer une redirection.
+      if (error.response?.status === 401 && !isAuthEndpoint) {
+        // Refresh déjà tenté sur un endpoint protégé : session vraiment expirée.
         clearAuth();
         window.location.assign('/login');
       }
