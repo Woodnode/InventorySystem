@@ -8,6 +8,18 @@ import { useAuth } from './useAuth';
 import { loginSchema, registerSchema, type LoginInput, type RegisterInput } from './types';
 import './LoginPage.css';
 
+/**
+ * Identifiants de démonstration, affichés seulement si le build les définit (site vitrine).
+ * Absents de tout autre déploiement : les variables ne sont pas renseignées.
+ */
+const DEMO_ACCOUNT =
+  import.meta.env.VITE_DEMO_EMAIL && import.meta.env.VITE_DEMO_PASSWORD
+    ? { email: import.meta.env.VITE_DEMO_EMAIL as string, password: import.meta.env.VITE_DEMO_PASSWORD as string }
+    : null;
+
+/** Inscription libre : fermée sur le site vitrine (l'API la refuse aussi, voir AuthController). */
+const REGISTRATION_ENABLED = import.meta.env.VITE_ALLOW_REGISTRATION !== 'false';
+
 /** Écran de connexion + inscription (voir plan §7). */
 export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -128,18 +140,38 @@ export function LoginPage() {
           </form>
         )}
 
-        <div className="auth-switch-container">
-          <button
-            type="button"
-            className="auth-switch-btn"
-            onClick={() => {
-              setServerError(null);
-              setMode((m) => (m === 'login' ? 'register' : 'login'));
-            }}
-          >
-            {mode === 'login' ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
-          </button>
-        </div>
+        {DEMO_ACCOUNT && mode === 'login' && (
+          <div className="auth-demo">
+            <p className="auth-demo-title">Compte de démonstration</p>
+            <p className="auth-demo-line">{DEMO_ACCOUNT.email}</p>
+            <p className="auth-demo-line">{DEMO_ACCOUNT.password}</p>
+            <button
+              type="button"
+              className="auth-switch-btn"
+              onClick={() => {
+                loginForm.setValue('email', DEMO_ACCOUNT.email);
+                loginForm.setValue('password', DEMO_ACCOUNT.password);
+              }}
+            >
+              Remplir le formulaire
+            </button>
+          </div>
+        )}
+
+        {REGISTRATION_ENABLED && (
+          <div className="auth-switch-container">
+            <button
+              type="button"
+              className="auth-switch-btn"
+              onClick={() => {
+                setServerError(null);
+                setMode((m) => (m === 'login' ? 'register' : 'login'));
+              }}
+            >
+              {mode === 'login' ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
