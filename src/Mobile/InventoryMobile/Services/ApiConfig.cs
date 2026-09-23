@@ -44,5 +44,7 @@ public static class ApiConfig
     public static string BaseUrl => $"{Host}/api/v1/";
 
     /// <summary>Hub SignalR StockHub — mêmes contraintes réseau que <see cref="BaseUrl"/>.</summary>
-    public static string StockHubUrl => $"{Host}/hubs/stock";
+    // Le hub est servi sous /api/v1, comme le reste de l'API : en production un seul relais
+    // transmet les deux au serveur.
+    public static string StockHubUrl => $"{Host}/api/v1/hubs/stock";
 }

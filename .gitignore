@@ -23,6 +23,8 @@ coverage/
 .env
 .env.*
 !.env.example
+# Réglages du build de production (aucun secret) : nécessaires à la compilation du front.
+!.env.production
 appsettings.*.Local.json
 *.pfx
 

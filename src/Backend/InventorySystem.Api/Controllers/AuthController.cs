@@ -15,12 +15,18 @@ namespace InventorySystem.Api.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly ISender _mediator;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(ISender mediator) => _mediator = mediator;
+    public AuthController(ISender mediator, IConfiguration configuration)
+    {
+        _mediator = mediator;
+        _configuration = configuration;
+    }
 
     /// <summary>
-    /// Crée un compte. Ouvert par défaut pour le rôle "Employe" ; créer un compte
-    /// Admin/Gestionnaire nécessite d'être déjà authentifié en tant qu'Admin.
+    /// Crée un compte. L'inscription libre (rôle "Employe" sans être connecté) dépend du réglage
+    /// "Registration:PublicEnabled", fermé sur le site vitrine ; la création par un Admin connecté
+    /// reste toujours possible.
     /// </summary>
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResultDto), StatusCodes.Status200OK)]
@@ -29,8 +35,16 @@ public sealed class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<AuthResultDto>> Register(RegisterRequest request, CancellationToken ct)
     {
-        if (request.Role != "Employe" && !(User.Identity?.IsAuthenticated == true && User.IsInRole("Admin")))
+        var isAdmin = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
+
+        if (request.Role != "Employe" && !isAdmin)
             return Forbid();
+
+        // Inscription libre fermée sur le site vitrine : le compte de démonstration suffit à
+        // visiter l'application, et personne ne peut créer de comptes sur le serveur.
+        // La création par un Admin connecté reste possible.
+        if (!isAdmin && !_configuration.GetValue<bool>("Registration:PublicEnabled"))
+            return NotFound();
 
         var command = new RegisterCommand(request.Email, request.Password, request.DisplayName, request.Role);
         return Ok(await _mediator.Send(command, ct));

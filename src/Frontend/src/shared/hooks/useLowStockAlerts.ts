@@ -19,7 +19,8 @@ function hubUrl(): string {
   if (window.location.hostname === '10.0.2.2') {
     apiUrl = 'http://10.0.2.2:5244/api/v1';
   }
-  return `${apiUrl.replace(/\/api\/v1\/?$/, '')}/hubs/stock`;
+  // Le hub vit sous /api/v1 : en production, un seul relais transmet l'API et le temps réel.
+  return `${apiUrl.replace(/\/$/, '')}/hubs/stock`;
 }
 
 /**
