@@ -4,9 +4,11 @@ using InventorySystem.Api.Middlewares;
 using InventorySystem.Application;
 using InventorySystem.Infrastructure;
 using InventorySystem.Infrastructure.Auth;
+using InventorySystem.Infrastructure.Persistence;
 using InventorySystem.Infrastructure.SignalR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
@@ -33,6 +35,8 @@ builder.Services.AddSwaggerGen();
 
 // --- CORS restreint aux origines connues (React dev/prod) ---
 const string CorsPolicy = "AllowFrontend";
+builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
+
 builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy =>
         policy.WithOrigins(
@@ -108,11 +112,18 @@ app.UseCors(CorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<StockHub>("/hubs/stock").RequireAuthorization();
+// Sous /api : en production, un seul relais transmet l'API et le temps réel au serveur.
+app.MapHub<StockHub>("/api/v1/hubs/stock").RequireAuthorization();
+app.MapHealthChecks("/health");
 
 // --- Seed des rôles fixes (Admin/Gestionnaire/Employe) au démarrage ---
 using (var scope = app.Services.CreateScope())
 {
+    // Le schéma doit exister avant tout amorçage : sans cela, la première mise en ligne échoue.
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (dbContext.Database.IsRelational())
+        await dbContext.Database.MigrateAsync();
+
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     await RoleSeeder.SeedAsync(roleManager);
 
@@ -121,6 +132,10 @@ using (var scope = app.Services.CreateScope())
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await AdminSeeder.SeedAsync(userManager, roleManager, app.Configuration, logger);
+
+    // Catalogue de démonstration, uniquement sur le site vitrine (Seed:Demo) et base vide.
+    if (app.Configuration.GetValue<bool>("Seed:Demo"))
+        await DemoDataSeeder.SeedAsync(dbContext, logger);
 }
 
 app.Run();
