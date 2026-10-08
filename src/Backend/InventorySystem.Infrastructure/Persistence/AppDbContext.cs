@@ -9,7 +9,7 @@ using Npgsql;
 
 namespace InventorySystem.Infrastructure.Persistence;
 
-/// <summary>
+/// <summary>bkjui
 /// DbContext EF Core (PostgreSQL). Sert aussi d'Unit of Work et de store ASP.NET Core
 /// Identity (utilisateurs/rôles). Les configurations d'entités métier utilisent la Fluent
 /// API (pas de Data Annotations sur le Domain, pour le garder découplé — voir plan §3.3).

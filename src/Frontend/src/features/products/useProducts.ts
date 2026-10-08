@@ -16,6 +16,7 @@ export type ProductFilters = {
   minQuantity?: number;
   maxQuantity?: number;
   lowStockOnly?: boolean;
+  collection?: string;
   sortBy?: ProductSortBy;
   sortDescending?: boolean;
 };
@@ -29,13 +30,19 @@ export type ProductFilters = {
  * `filters` (recherche SKU/nom, quantité min/max, stock bas, tri) est inclus dans la clé de
  * requête pour que chaque combinaison ait son propre cache et se rafraîchisse au changement.
  */
-export function useProducts(page = 1, pageSize = PAGE_SIZE, filters: ProductFilters = {}) {
-  const { search, minQuantity, maxQuantity, lowStockOnly, sortBy, sortDescending } = filters;
+export function useProducts(
+  page = 1,
+  pageSize = PAGE_SIZE,
+  filters: ProductFilters = {},
+  enabled = true,
+) {
+  const { search, minQuantity, maxQuantity, lowStockOnly, collection, sortBy, sortDescending } = filters;
   return useQuery<PagedResult<Product>>({
     queryKey: [
       ...QUERY_KEY, page, pageSize, search ?? '', minQuantity ?? null, maxQuantity ?? null,
-      lowStockOnly ?? false, sortBy ?? 'Name', sortDescending ?? false,
+      lowStockOnly ?? false, collection ?? '', sortBy ?? 'Name', sortDescending ?? false,
     ],
+    enabled,
     queryFn: async () => {
       const { data } = await apiClient.get('/products', {
         params: {
@@ -45,6 +52,7 @@ export function useProducts(page = 1, pageSize = PAGE_SIZE, filters: ProductFilt
           minQuantity: minQuantity ?? undefined,
           maxQuantity: maxQuantity ?? undefined,
           lowStockOnly: lowStockOnly || undefined,
+          collection: collection || undefined,
           sortBy: sortBy || undefined,
           sortDescending: sortDescending || undefined,
         },

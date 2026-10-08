@@ -1,31 +1,254 @@
 @import "tailwindcss";
 
+/*
+ * Socle visuel de l'application.
+ *
+ * Avant : deux systèmes coexistaient — les utilitaires Tailwind d'un côté, des
+ * fichiers CSS artisanaux de l'autre, avec deux styles de bouton concurrents
+ * (`.btn-primary` en ardoise, `.auth-submit-btn` en dégradé sarcelle) et cinq
+ * rayons différents. Tout passe désormais par les jetons ci-dessous.
+ */
+@theme {
+  /* Palette de marque, reprise du dégradé de la page de connexion. */
+  --color-brand-900: #184e77;
+  --color-brand-700: #1a759f;
+  --color-brand-600: #168aad;
+  --color-brand-500: #34a0a4;
+  --color-brand-400: #52b69a;
+  --color-brand-300: #99d98c;
+
+  /* Un seul jeu de rayons. */
+  --radius-field: 10px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+}
+
 @layer base {
+  html {
+    /* Compense le header collant lors d'un saut vers une ancre. */
+    scroll-padding-top: 5rem;
+  }
+
   body {
-    min-height: 100vh;
+    /* dvh et non vh : sinon la barre d'adresse iOS provoque un saut de mise en page. */
+    min-height: 100dvh;
     overflow-y: scroll;
-    /* Very subtle gradient, lighter than login page for content readability */
-    background: linear-gradient(-45deg, #f4fdf8, #f8fafc, #f0f9ff, #f8faff);
-    @apply antialiased text-slate-900;
+    background: #f8fafc;
+    color: #0f172a;
+    /* Open Sans pour le texte, Poppins pour les titres. Fichiers auto-hébergés. */
+    font-family: "Open Sans", system-ui, sans-serif;
+    @apply antialiased;
+  }
+
+  h1,
+  h2,
+  .nav-brand,
+  .auth-title {
+    font-family: Poppins, "Open Sans", system-ui, sans-serif;
+  }
+
+  /* Anneau de focus homogène, visible au clavier uniquement. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-700);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
 @layer components {
   .input {
-    @apply w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900
-      placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2
-      focus:ring-slate-200;
+    /* min-h-11 = 44px : cible tactile conforme sur l'ensemble des contrôles. */
+    @apply min-h-11 w-full rounded-field border border-slate-300 bg-white px-3 py-2
+      text-sm text-slate-900 placeholder:text-slate-500
+      focus:border-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30
+      disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500;
   }
 
   .btn-primary {
-    @apply rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white
-      hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-field
+      bg-brand-900 px-4 py-2 text-sm font-semibold text-white
+      transition-transform duration-150 hover:bg-brand-700 active:scale-[0.98]
+      disabled:cursor-not-allowed disabled:bg-slate-400 disabled:text-white disabled:active:scale-100;
   }
 
   .btn-secondary {
-    @apply rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700
-      hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
+    /* text-slate-700 sur blanc : 8,9:1. En désactivé on assombrit le texte plutôt
+       que de baisser l'opacité, qui faisait tomber le contraste sous le seuil. */
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-field
+      border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700
+      transition-transform duration-150 hover:bg-slate-50 hover:border-slate-400
+      active:scale-[0.98]
+      disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50
+      disabled:text-slate-500 disabled:active:scale-100;
   }
+
+  /* Conteneur blanc standard : formulaires, panneaux de filtres, listes. */
+  .surface {
+    @apply rounded-card border border-slate-200 bg-white;
+  }
+
+  /* Bannière d'erreur de mutation, identique sur les cinq formulaires. */
+  .form-error {
+    @apply rounded-field bg-rose-50 px-3 py-2 text-sm text-rose-700;
+  }
+}
+
+/*
+ * Aucune animation n'était conditionnée à ce réglage : le dégradé animé de la page
+ * de connexion tournait en continu, y compris pour les personnes sensibles au
+ * mouvement. Filet global.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes menu-entre {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-entre {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes liste-entre {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.menu-mobile {
+  animation: menu-entre 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-entre {
+  animation: toast-entre 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liste-entre {
+  animation: liste-entre 180ms ease;
+}
+
+/* Mode sombre : la classe est posée sur <html> par le bouton de thème. */
+.dark body,
+.dark .app-wrapper {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.dark .app-header,
+.dark .surface,
+.dark .dashboard-card,
+.dark .auth-glass-card,
+.dark .menu-mobile {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: #f1f5f9;
+}
+
+.dark .text-slate-700 {
+  color: #e2e8f0;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: #cbd5e1;
+}
+
+.dark .bg-white {
+  background-color: #1e293b;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0f172a;
+}
+
+.dark .bg-slate-100 {
+  background-color: #334155;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-100,
+.dark .border-slate-300 {
+  border-color: #334155;
+}
+
+.dark .input,
+.dark .auth-input-custom {
+  background: #0f172a;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark .btn-secondary {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.dark .btn-secondary:hover:not(:disabled) {
+  background: #334155;
+}
+
+.dark .nav-brand,
+.dark .auth-title,
+.dark .gradient-text {
+  color: #99d98c;
+  background: none;
+  -webkit-text-fill-color: unset;
+}
+
+.dark .nav-link-custom:not(.active) {
+  color: #cbd5e1;
+}
+
+.dark .nav-link-custom:not(.active):hover {
+  background: rgba(153, 217, 140, 0.12);
+  color: #99d98c;
+}
+
+.dark .role-label {
+  color: #99d98c;
+}
+
+.dark .auth-wrapper {
+  background: #0f172a;
+}
+
+.dark #qr-print-section,
+.dark #qr-print-section * {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 @media print {

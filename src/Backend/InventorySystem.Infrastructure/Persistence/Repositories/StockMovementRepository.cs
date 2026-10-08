@@ -42,4 +42,26 @@ public sealed class StockMovementRepository : IStockMovementRepository
             .OrderByDescending(m => m.CreatedAtUtc)
             .Take(maxRows)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DailyMovementTotals>> SumByDayAsync(
+        DateTime sinceUtc, CancellationToken ct = default)
+    {
+        // GroupBy sur .Date est traduit par Npgsql en troncature de date : le regroupement
+        // et les sommes s'executent dans PostgreSQL, seules les lignes journalieres reviennent.
+        var lignes = await _db.StockMovements.AsNoTracking()
+            .Where(m => m.CreatedAtUtc >= sinceUtc
+                        && (m.Type == MovementType.In || m.Type == MovementType.Out))
+            .GroupBy(m => m.CreatedAtUtc.Date)
+            .Select(g => new
+            {
+                Day = g.Key,
+                InQuantity = g.Sum(m => m.Type == MovementType.In ? m.Quantity : 0),
+                OutQuantity = g.Sum(m => m.Type == MovementType.Out ? m.Quantity : 0),
+            })
+            .ToListAsync(ct);
+
+        return lignes
+            .Select(l => new DailyMovementTotals(l.Day, l.InQuantity, l.OutQuantity))
+            .ToList();
+    }
 }

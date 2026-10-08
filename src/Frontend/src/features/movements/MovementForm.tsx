@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getErrorMessage } from '../../shared/api-client/errorMessage';
+import { useToast } from '../../shared/hooks/useToast';
 import { useWarehouses } from '../warehouses/useWarehouses';
 import { recordMovementSchema, type RecordMovementInput } from './types';
 import { useRecordMovement } from './useMovements';
@@ -17,6 +18,7 @@ export function MovementForm({ productId }: { productId: string }) {
   // continue de résoudre les noms des entrepôts inactifs via warehouseNameLookup, non filtré.
   const activeWarehouses = warehouses?.filter((w) => w.isActive);
   const recordMovement = useRecordMovement();
+  const { notify } = useToast();
 
   const form = useForm<RecordMovementInput>({
     resolver: zodResolver(recordMovementSchema),
@@ -28,6 +30,7 @@ export function MovementForm({ productId }: { productId: string }) {
   async function onSubmit(input: RecordMovementInput) {
     try {
       await recordMovement.mutateAsync({ ...input, productId });
+      notify(`Mouvement enregistré : ${input.quantity} unité(s).`);
       // On garde productId + type (permet d'enchaîner plusieurs saisies du même type sans
       // rescroller à chaque fois) ; tout le reste doit être explicitement resaisi pour éviter
       // de réutiliser silencieusement un entrepôt ou un motif périmé (form.reset() ne
@@ -48,7 +51,7 @@ export function MovementForm({ productId }: { productId: string }) {
 
   return (
     <form
-      className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-4"
+      className="grid grid-cols-1 gap-3 surface p-4 sm:grid-cols-2 lg:grid-cols-4"
       onSubmit={form.handleSubmit(onSubmit)}
     >
       <label className="flex flex-col gap-1 text-sm">
@@ -109,19 +112,19 @@ export function MovementForm({ productId }: { productId: string }) {
         )}
       </label>
 
-      <label className="col-span-2 flex flex-col gap-1 text-sm sm:col-span-3">
+      <label className="flex flex-col gap-1 text-sm sm:col-span-2 lg:col-span-3">
         <span className="font-medium text-slate-700">Motif (optionnel)</span>
         <input className="input" {...form.register('reason')} />
       </label>
 
       <div className="flex items-end">
         <button type="submit" className="btn-primary w-full" disabled={form.formState.isSubmitting}>
-          Enregistrer
+          {form.formState.isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </div>
 
       {recordMovement.isError && (
-        <p className="col-span-full text-sm text-rose-600">
+        <p role="alert" className="col-span-full form-error">
           {getErrorMessage(recordMovement.error, 'Mouvement refusé. Réessaie.')}
         </p>
       )}

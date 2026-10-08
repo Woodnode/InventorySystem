@@ -34,7 +34,7 @@ public sealed class ProductsController : ControllerBase
         var command = new CreateProductCommand(
             request.Sku, request.Name, request.Description, request.LowStockThreshold,
             request.WarehouseId, request.InitialQuantity, request.SupplierId,
-            request.ProjectCode, request.Collection, request.VolumeNumber, request.ProductType, request.Year, request.WeightPerCopyLb,
+            request.ProjectCode, request.Collection, request.VolumeNumber, request.ProductType, request.Year, request.WeightPerCopyGrams,
             request.Company,
             request.Section, request.Space, request.Pallet, request.BoxesCount, request.CopiesPerBox,
             request.EntryDate, request.ExitDate, request.DistributorName, request.ReturnDate, request.Comment);
@@ -48,6 +48,12 @@ public sealed class ProductsController : ControllerBase
     /// <paramref name="lowStockOnly"/> filtrent sur le stock total agrégé. <paramref name="sortBy"/>/
     /// <paramref name="sortDescending"/> contrôlent le tri (nom par défaut).
     /// </summary>
+    /// <summary>Collections du catalogue, avec leur nombre de references — alimente le filtre.</summary>
+    [HttpGet("collections")]
+    [ProducesResponseType(typeof(IReadOnlyList<CollectionDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<CollectionDto>>> GetCollections(CancellationToken ct)
+        => Ok(await _mediator.Send(new GetCollectionsQuery(), ct));
+
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<ProductDto>>> GetAll(
@@ -59,9 +65,10 @@ public sealed class ProductsController : ControllerBase
         [FromQuery] bool lowStockOnly = false,
         [FromQuery] ProductSortBy sortBy = ProductSortBy.Name,
         [FromQuery] bool sortDescending = false,
+        [FromQuery] string? collection = null,
         CancellationToken ct = default)
         => Ok(await _mediator.Send(new GetProductsQuery(
-            page, pageSize, search, minQuantity, maxQuantity, lowStockOnly, sortBy, sortDescending), ct));
+            page, pageSize, search, minQuantity, maxQuantity, lowStockOnly, sortBy, sortDescending, collection), ct));
 
     /// <summary>Récupère un produit par id, avec son stock total agrégé.</summary>
     [HttpGet("{id:guid}")]

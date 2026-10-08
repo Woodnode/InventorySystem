@@ -57,9 +57,12 @@ public sealed class ProductRepository : IProductRepository
     public async Task<(IReadOnlyList<Product> Items, int TotalCount)> ListPagedAsync(
         int page, int pageSize, string? search = null, int? minQuantity = null, int? maxQuantity = null,
         bool lowStockOnly = false, ProductSortBy sortBy = ProductSortBy.Name, bool sortDescending = false,
-        CancellationToken ct = default)
+        string? collection = null, CancellationToken ct = default)
     {
         var query = _db.Products.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(collection))
+            query = query.Where(p => p.Collection == collection);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -120,4 +123,34 @@ public sealed class ProductRepository : IProductRepository
         => await _db.Products.AddAsync(product, ct);
 
     public void Update(Product product) => _db.Products.Update(product);
+
+    public async Task<CatalogTotals> GetCatalogTotalsAsync(CancellationToken ct = default)
+    {
+        // Le poids unitaire est porte par le produit, la quantite par le stock : la
+        // jointure et la somme sont faites par PostgreSQL, rien ne remonte en memoire.
+        var poids = await (
+            from p in _db.Products.AsNoTracking()
+            where p.WeightPerCopyGrams != null
+            join s in _db.Stocks.AsNoTracking() on p.Id equals s.ProductId
+            select (decimal)p.WeightPerCopyGrams! * s.Quantity
+        ).SumAsync(ct);
+
+        var total = await _db.Products.AsNoTracking().CountAsync(ct);
+        return new CatalogTotals(total, poids);
+    }
+
+    public async Task<IReadOnlyList<CollectionCount>> CountByCollectionAsync(
+        int top, CancellationToken ct = default)
+    {
+        var lignes = await _db.Products.AsNoTracking()
+            .Where(p => p.Collection != null && p.Collection != "")
+            .GroupBy(p => p.Collection!)
+            .Select(g => new { Collection = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Collection)
+            .Take(top)
+            .ToListAsync(ct);
+
+        return lignes.Select(l => new CollectionCount(l.Collection, l.Count)).ToList();
+    }
 }

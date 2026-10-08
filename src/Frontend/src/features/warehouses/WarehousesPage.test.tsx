@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/useAuth';
 import { apiClient } from '../../shared/api-client/client';
+import { ToastProvider } from '../../shared/components/ToastProvider';
 import { WarehousesPage } from './WarehousesPage';
 
 // Voir AUDIT.md F-4 / ré-audit : le CRUD Warehouses (édition inline + activer/désactiver)
@@ -35,7 +36,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={authValue}>
-        <WarehousesPage />
+        <ToastProvider><WarehousesPage /></ToastProvider>
       </AuthContext.Provider>
     </QueryClientProvider>,
   );
@@ -61,7 +62,7 @@ describe('WarehousesPage', () => {
 
     await screen.findByText('Entrepôt A');
     const row = screen.getByText('Entrepôt A').closest('li')!;
-    fireEvent.click(within(row).getByRole('button', { name: 'Éditer' }));
+    fireEvent.click(within(row).getByRole('button', { name: /^Éditer/ }));
 
     const nameInput = within(row).getByRole('textbox', { name: 'Nom' });
     fireEvent.change(nameInput, { target: { value: 'Entrepôt A renommé' } });
@@ -97,12 +98,12 @@ describe('WarehousesPage', () => {
     await screen.findByText('Entrepôt A');
     const row = screen.getByText('Entrepôt A').closest('li')!;
 
-    fireEvent.click(within(row).getByRole('button', { name: 'Éditer' }));
+    fireEvent.click(within(row).getByRole('button', { name: /^Éditer/ }));
     const nameInput = within(row).getByRole('textbox', { name: 'Nom' }) as HTMLInputElement;
     expect(nameInput.value).toBe('Entrepôt A');
 
     fireEvent.click(within(row).getByRole('button', { name: 'Annuler' }));
-    fireEvent.click(within(row).getByRole('button', { name: 'Éditer' }));
+    fireEvent.click(within(row).getByRole('button', { name: /^Éditer/ }));
 
     const reopenedInput = within(row).getByRole('textbox', { name: 'Nom' }) as HTMLInputElement;
     expect(reopenedInput.value).toBe('Entrepôt A');

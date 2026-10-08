@@ -75,7 +75,7 @@ namespace InventorySystem.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<decimal?>("WeightPerCopyLb")
+                    b.Property<decimal?>("WeightPerCopyGrams")
                         .HasColumnType("numeric");
 
                     b.Property<int?>("Year")

@@ -14,9 +14,18 @@ export const productSchema = z.object({
   volumeNumber: z.string().nullable().optional(),
   productType: z.string().nullable().optional(),
   year: z.number().int().nullable().optional(),
-  weightPerCopyLb: z.number().nullable().optional(),
+  weightPerCopyGrams: z.number().nullable().optional(),
   company: z.string().nullable().optional(),
+  /** Entrepôt détenant le plus d'unités, avec sa section. Null si aucun stock. */
+  primaryLocation: z.string().nullable().optional(),
 });
+
+/** Collection éditoriale et nombre de références, pour le filtre. */
+export const collectionSchema = z.object({
+  name: z.string(),
+  count: z.number().int(),
+});
+export type Collection = z.infer<typeof collectionSchema>;
 export type Product = z.infer<typeof productSchema>;
 
 /**
@@ -38,7 +47,7 @@ export const createProductSchema = z.object({
   volumeNumber: z.string().max(50).optional(),
   productType: z.string().max(100).optional(),
   year: z.number().int().optional(),
-  weightPerCopyLb: z.number().optional(),
+  weightPerCopyGrams: z.number().optional(),
   company: z.string().max(150).optional(),
 
   section: z.string().max(50).optional(),

@@ -19,7 +19,7 @@ public sealed record CreateProductRequest(
     string? VolumeNumber,
     string? ProductType,
     int? Year,
-    decimal? WeightPerCopyLb,
+    decimal? WeightPerCopyGrams,
     string? Company,
     string? Section,
     string? Space,

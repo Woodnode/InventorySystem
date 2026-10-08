@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from './useAuth';
+import { ThemeProvider } from '../../app/ThemeProvider';
 import { LoginPage } from './LoginPage';
 
 /**
@@ -24,7 +25,9 @@ function renderWithAuth(overrides: Partial<AuthContextValue>) {
   return render(
     <MemoryRouter initialEntries={['/login']}>
       <AuthContext.Provider value={value}>
+      <ThemeProvider>
         <LoginPage />
+      </ThemeProvider>
       </AuthContext.Provider>
     </MemoryRouter>,
   );

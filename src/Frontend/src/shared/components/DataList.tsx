@@ -5,6 +5,11 @@ import type { ReactNode } from 'react';
  * `divide-y` partout, seul le contenu de chaque ligne change. Le rendu loading/erreur/vide
  * qui précède reste géré par QueryState — ce composant ne s'occupe que de la liste
  * elle-même, une fois qu'on sait qu'il y a des éléments à afficher.
+ *
+ * La ligne passe en colonne sous 640px. Auparavant `flex items-center justify-between`
+ * s'appliquait à toutes les largeurs : sur mobile, le libellé et sa valeur se
+ * comprimaient l'un contre l'autre, et les lignes portant des boutons d'action
+ * (entrepôts, fournisseurs) devenaient inutilisables.
  */
 export function DataList<T>({
   items,
@@ -20,11 +25,11 @@ export function DataList<T>({
   itemClassName?: string;
 }) {
   return (
-    <ul className={`${className} divide-y divide-slate-100 rounded-xl border border-slate-100 bg-white`}>
+    <ul className={`${className} surface divide-y divide-slate-100`}>
       {items.map((item) => (
         <li
           key={keyOf(item)}
-          className={`flex items-center justify-between px-4 py-3 ${itemClassName}`}
+          className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${itemClassName}`}
         >
           {renderItem(item)}
         </li>

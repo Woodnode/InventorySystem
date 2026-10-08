@@ -26,19 +26,21 @@ export function MovementList({
       itemClassName="text-sm"
       renderItem={(m) => (
         <>
-          <div>
+          <div className="min-w-0">
             <span className="font-medium text-slate-800">{formatMovementType(m.type)}</span>
-            <span className="ml-2 text-slate-500">
+            {/* text-slate-600 plutot que 500/400 : l'entrepot et le motif portent
+                l'essentiel du sens de la ligne. */}
+            <span className="ml-2 text-slate-600">
               {warehouseName(m.warehouseId)}
               {m.toWarehouseId && ` → ${warehouseName(m.toWarehouseId)}`}
             </span>
-            {m.reason && <span className="ml-2 text-slate-400">({m.reason})</span>}
+            {m.reason && <span className="ml-2 text-slate-600">({m.reason})</span>}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-slate-600">{m.quantity}</span>
-            <span className="text-xs text-slate-400">
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="font-mono font-medium text-slate-800">{m.quantity}</span>
+            <time dateTime={m.createdAtUtc} className="text-xs text-slate-600">
               {new Date(m.createdAtUtc).toLocaleString('fr-CA')}
-            </span>
+            </time>
           </div>
         </>
       )}

@@ -16,5 +16,7 @@ public sealed record ProductDto(
     string? VolumeNumber,
     string? ProductType,
     int? Year,
-    decimal? WeightPerCopyLb,
-    string? Company);
+    decimal? WeightPerCopyGrams,
+    string? Company,
+    /// <summary>Entrepot detenant le plus d'unites, et sa section. Null si aucun stock.</summary>
+    string? PrimaryLocation = null);
