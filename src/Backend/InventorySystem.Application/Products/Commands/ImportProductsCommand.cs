@@ -1,6 +1,7 @@
 using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
+using InventorySystem.Application.Common;
 using InventorySystem.Application.Common.Interfaces;
 using MediatR;
 using MiniExcelLibs;
@@ -67,6 +68,23 @@ public sealed class CsvProductRecord
 
     [Name("Poids / copie (lb)", "Poids/copie (lb)")]
     public decimal? PoidsCopieLb { get; set; }
+
+    [Name("Poids / copie (g)", "Poids/copie (g)")]
+    public decimal? PoidsCopieG { get; set; }
+
+    /// <summary>
+    /// Poids unitaire en grammes, quelle que soit l'unite du fichier.
+    ///
+    /// Les classeurs deja en circulation portent l'en-tete « Poids / copie (lb) » :
+    /// les lire comme des grammes diviserait les poids par 453. La colonne en livres
+    /// reste donc acceptee et convertie, et la colonne en grammes a la priorite
+    /// lorsque les deux sont presentes.
+    /// </summary>
+    public decimal? PoidsCopieGrammes
+        => PoidsCopieG ?? (PoidsCopieLb.HasValue ? PoidsCopieLb.Value * GrammesParLivre : null);
+
+    /// <summary>Facteur exact de la livre avoirdupois.</summary>
+    public const decimal GrammesParLivre = 453.59237m;
 
     [Name("CAF - Date Entrée", "CAF - Date Entree")]
     public string? DateEntree { get; set; }
@@ -142,12 +160,7 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
         }
 
         static decimal? GetDec(IDictionary<string, object> rowDict, params string[] names)
-        {
-            var v = GetVal(rowDict, names);
-            if (decimal.TryParse(v, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal r)) return r;
-            if (decimal.TryParse(v, out decimal r2)) return r2;
-            return null;
-        }
+            => NumberParsing.ParseDecimal(GetVal(rowDict, names));
 
         // Un fichier Excel réel contient des anomalies de saisie (cellule collée depuis un
         // autre document, formule mal recopiée...) qui peuvent dépasser la longueur de colonne
@@ -222,6 +235,7 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                             Type = Truncate(GetVal(rowDict, "Type"), 100),
                             Annee = GetInt(rowDict, "Année", "Annee", "Year"),
                             PoidsCopieLb = GetDec(rowDict, "Poids/copie (lb)", "Poids", "Poids / copie (lb)"),
+                            PoidsCopieG = GetDec(rowDict, "Poids/copie (g)", "Poids / copie (g)"),
                             Location = GetVal(rowDict, "Localisation", "Location", "Entrepôt"),
                             Section = Truncate(GetVal(rowDict, "Section"), 50),
                             Espace = Truncate(GetVal(rowDict, "Espace"), 50),
@@ -361,7 +375,7 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                         record.VolNo,
                         record.Type,
                         record.Annee,
-                        record.PoidsCopieLb,
+                        record.PoidsCopieGrammes,
                         record.Compagnies);
 
                     await _products.AddAsync(product, cancellationToken);
@@ -386,7 +400,7 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                         Coalesce(record.VolNo, product.VolumeNumber),
                         Coalesce(record.Type, product.ProductType),
                         record.Annee ?? product.Year,
-                        record.PoidsCopieLb ?? product.WeightPerCopyLb,
+                        record.PoidsCopieGrammes ?? product.WeightPerCopyGrams,
                         Coalesce(record.Compagnies, product.Company));
 
                     updated++;

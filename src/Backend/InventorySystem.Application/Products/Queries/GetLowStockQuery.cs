@@ -41,7 +41,7 @@ public sealed class GetLowStockQueryHandler
                 r.Product.VolumeNumber,
                 r.Product.ProductType,
                 r.Product.Year,
-                r.Product.WeightPerCopyLb,
+                r.Product.WeightPerCopyGrams,
                 r.Product.Company))
             .ToList();
 

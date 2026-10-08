@@ -24,14 +24,14 @@ public sealed class Product : BaseEntity
     public string? VolumeNumber { get; private set; }
     public string? ProductType { get; private set; }
     public int? Year { get; private set; }
-    public decimal? WeightPerCopyLb { get; private set; }
+    public decimal? WeightPerCopyGrams { get; private set; }
     public string? Company { get; private set; }
 
     // Constructeur privé requis par EF Core.
     private Product() { }
 
     private Product(Sku sku, string name, string? description, int lowStockThreshold, Guid? supplierId,
-        string? projectCode, string? collection, string? volumeNumber, string? productType, int? year, decimal? weightPerCopyLb, string? company)
+        string? projectCode, string? collection, string? volumeNumber, string? productType, int? year, decimal? weightPerCopyGrams, string? company)
     {
         Sku = sku;
         Name = name;
@@ -43,24 +43,24 @@ public sealed class Product : BaseEntity
         VolumeNumber = volumeNumber;
         ProductType = productType;
         Year = year;
-        WeightPerCopyLb = weightPerCopyLb;
+        WeightPerCopyGrams = weightPerCopyGrams;
         Company = company;
     }
 
     public static Product Create(Sku sku, string name, string? description, int lowStockThreshold, Guid? supplierId = null,
-        string? projectCode = null, string? collection = null, string? volumeNumber = null, string? productType = null, int? year = null, decimal? weightPerCopyLb = null, string? company = null)
+        string? projectCode = null, string? collection = null, string? volumeNumber = null, string? productType = null, int? year = null, decimal? weightPerCopyGrams = null, string? company = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Le nom du produit est obligatoire.");
         if (lowStockThreshold < 0)
             throw new DomainException("Le seuil de stock bas ne peut pas être négatif.");
 
-        return new Product(sku, name, description, lowStockThreshold, supplierId, projectCode, collection, volumeNumber, productType, year, weightPerCopyLb, company);
+        return new Product(sku, name, description, lowStockThreshold, supplierId, projectCode, collection, volumeNumber, productType, year, weightPerCopyGrams, company);
     }
 
     public void UpdateDetails(string name, string? description, int lowStockThreshold,
         string? projectCode = null, string? collection = null, string? volumeNumber = null,
-        string? productType = null, int? year = null, decimal? weightPerCopyLb = null, string? company = null)
+        string? productType = null, int? year = null, decimal? weightPerCopyGrams = null, string? company = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Le nom du produit est obligatoire.");
@@ -75,7 +75,7 @@ public sealed class Product : BaseEntity
         VolumeNumber = volumeNumber;
         ProductType = productType;
         Year = year;
-        WeightPerCopyLb = weightPerCopyLb;
+        WeightPerCopyGrams = weightPerCopyGrams;
         Company = company;
 
         Touch();

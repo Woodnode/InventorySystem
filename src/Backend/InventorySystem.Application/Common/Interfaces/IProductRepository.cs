@@ -7,6 +7,12 @@ namespace InventorySystem.Application.Common.Interfaces;
 /// Contrat d'accès à l'agrégat Product. Implémenté dans Infrastructure (DIP).
 /// Un repository = un seul agrégat (voir SOLID §4 du plan).
 /// </summary>
+/// <summary>Totaux du catalogue, agreges en base.</summary>
+public sealed record CatalogTotals(int TotalProducts, decimal TotalWeightGrams);
+
+/// <summary>Nombre de references portant une meme collection.</summary>
+public sealed record CollectionCount(string Collection, int Count);
+
 public interface IProductRepository
 {
     Task<Product?> GetByIdAsync(Guid id, CancellationToken ct = default);
@@ -41,7 +47,18 @@ public interface IProductRepository
     Task<(IReadOnlyList<Product> Items, int TotalCount)> ListPagedAsync(
         int page, int pageSize, string? search = null, int? minQuantity = null, int? maxQuantity = null,
         bool lowStockOnly = false, ProductSortBy sortBy = ProductSortBy.Name, bool sortDescending = false,
-        CancellationToken ct = default);
+        string? collection = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Totaux du catalogue pour le tableau de bord : nombre de references et poids
+    /// cumule du stock detenu. Agrege en SQL — le client paginait auparavant tout le
+    /// catalogue pour obtenir ces deux nombres.
+    /// </summary>
+    Task<CatalogTotals> GetCatalogTotalsAsync(CancellationToken ct = default);
+
+    /// <summary>Nombre de references par collection, les <paramref name="top"/> plus fournies.</summary>
+    Task<IReadOnlyList<CollectionCount>> CountByCollectionAsync(
+        int top, CancellationToken ct = default);
 
     Task AddAsync(Product product, CancellationToken ct = default);
     void Update(Product product);

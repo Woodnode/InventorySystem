@@ -25,7 +25,7 @@ public sealed record CreateProductCommand(
     string? VolumeNumber,
     string? ProductType,
     int? Year,
-    decimal? WeightPerCopyLb,
+    decimal? WeightPerCopyGrams,
     string? Company,
     string? Section,
     string? Space,
@@ -98,7 +98,7 @@ public sealed class CreateProductCommandHandler : IRequestHandler<CreateProductC
             request.VolumeNumber,
             request.ProductType,
             request.Year,
-            request.WeightPerCopyLb,
+            request.WeightPerCopyGrams,
             request.Company);
 
         var stock = Stock.Create(product.Id, request.WarehouseId, request.InitialQuantity);

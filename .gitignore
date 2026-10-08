@@ -54,3 +54,6 @@ Thumbs.db
 
 # ---------- Éditeur ----------
 .vscode/
+
+# Sauvegardes locales de la base
+/sauvegarde-*.sql

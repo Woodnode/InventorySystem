@@ -133,6 +133,9 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await AdminSeeder.SeedAsync(userManager, roleManager, app.Configuration, logger);
 
+    // Comptes de demonstration (un par role) : uniquement si Seed:DemoPassword est defini.
+    await DemoUserSeeder.SeedAsync(userManager, roleManager, app.Configuration, logger);
+
     // Catalogue de démonstration, uniquement sur le site vitrine (Seed:Demo) et base vide.
     if (app.Configuration.GetValue<bool>("Seed:Demo"))
         await DemoDataSeeder.SeedAsync(dbContext, logger);

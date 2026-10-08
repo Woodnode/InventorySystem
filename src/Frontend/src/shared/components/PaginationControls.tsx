@@ -14,17 +14,23 @@ export function PaginationControls({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+    <nav
+      aria-label="Pagination"
+      className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600"
+    >
       <button
         type="button"
         className="btn-secondary"
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
       >
-        ← Précédent
+        <span aria-hidden="true">←</span>
+        <span className="sr-only sm:not-sr-only">Précédent</span>
       </button>
-      <span>
+      {/* aria-live : le numéro changeait sans que rien ne l'annonce. */}
+      <span aria-live="polite" className="text-center">
         Page {page} / {totalPages}
+        <span className="sr-only"> — {totalCount} éléments au total</span>
       </span>
       <button
         type="button"
@@ -32,8 +38,9 @@ export function PaginationControls({
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
       >
-        Suivant →
+        <span className="sr-only sm:not-sr-only">Suivant</span>
+        <span aria-hidden="true">→</span>
       </button>
-    </div>
+    </nav>
   );
 }

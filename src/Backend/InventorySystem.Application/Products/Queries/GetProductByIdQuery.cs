@@ -34,6 +34,6 @@ public sealed class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQ
         return new ProductDto(
             product.Id, product.Sku.Value, product.Name, product.Description,
             totalQuantity, product.LowStockThreshold, product.IsLowOnStock(totalQuantity),
-            product.ProjectCode, product.Collection, product.VolumeNumber, product.ProductType, product.Year, product.WeightPerCopyLb, product.Company);
+            product.ProjectCode, product.Collection, product.VolumeNumber, product.ProductType, product.Year, product.WeightPerCopyGrams, product.Company);
     }
 }

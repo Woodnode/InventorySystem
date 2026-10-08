@@ -8,7 +8,10 @@ services:
       POSTGRES_USER: inventory
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?La variable POSTGRES_PASSWORD est manquante, copie .env.example vers .env et renseigne-la.}
     ports:
-      - "5432:5432"
+      # Port publie sur la machine hote. 5432 est souvent deja pris par un autre
+      # projet : POSTGRES_PORT permet de le deplacer sans toucher au compose.
+      # Le port interne reste 5432 — c'est celui que l'API utilise dans le reseau Docker.
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:

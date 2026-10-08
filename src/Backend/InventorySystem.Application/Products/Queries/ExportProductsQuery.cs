@@ -38,7 +38,7 @@ public sealed class ExportProductsQueryHandler : IRequestHandler<ExportProductsQ
                 var total = totals.GetValueOrDefault(p.Id, 0);
                 return new ProductDto(
                     p.Id, p.Sku.Value, p.Name, p.Description, total, p.LowStockThreshold, p.IsLowOnStock(total),
-                    p.ProjectCode, p.Collection, p.VolumeNumber, p.ProductType, p.Year, p.WeightPerCopyLb, p.Company);
+                    p.ProjectCode, p.Collection, p.VolumeNumber, p.ProductType, p.Year, p.WeightPerCopyGrams, p.Company);
             })
             .ToList();
 

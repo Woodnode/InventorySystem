@@ -56,4 +56,57 @@ public sealed class StockRepository : IStockRepository
             .Select(g => new { ProductId = g.Key, Total = g.Sum(s => s.Quantity) })
             .ToDictionaryAsync(x => x.ProductId, x => x.Total, ct);
     }
+
+    public async Task<IReadOnlyDictionary<Guid, ProductLocation>> GetPrimaryLocationsAsync(
+        IEnumerable<Guid> productIds, CancellationToken ct = default)
+    {
+        var ids = productIds.ToList();
+        if (ids.Count == 0)
+            return new Dictionary<Guid, ProductLocation>();
+
+        // Une ligne par couple produit/entrepot, jointe au nom de l'entrepot. Le choix
+        // de l'emplacement principal se fait ensuite en memoire : la page ne compte
+        // qu'une vingtaine de produits, et un GroupBy avec selection du maximum se
+        // traduit mal en SQL pour un gain nul a cette echelle.
+        var lignes = await (
+            from s in _db.Stocks.AsNoTracking()
+            join w in _db.Warehouses.AsNoTracking() on s.WarehouseId equals w.Id
+            where ids.Contains(s.ProductId) && s.Quantity > 0
+            select new { s.ProductId, s.WarehouseId, w.Name, s.Section, s.Quantity }
+        ).ToListAsync(ct);
+
+        return lignes
+            .GroupBy(l => l.ProductId)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var principal = g.OrderByDescending(x => x.Quantity).First();
+                    return new ProductLocation(
+                        principal.WarehouseId, principal.Name, principal.Section, principal.Quantity);
+                });
+    }
+
+    public async Task<IReadOnlyList<WarehouseLoad>> GetTotalsByWarehouseAsync(CancellationToken ct = default)
+    {
+        var lignes = await (
+            from s in _db.Stocks.AsNoTracking()
+            join w in _db.Warehouses.AsNoTracking() on s.WarehouseId equals w.Id
+            group new { s, w } by new { s.WarehouseId, w.Name } into g
+            select new
+            {
+                g.Key.WarehouseId,
+                g.Key.Name,
+                // Un produit sans unite occupe une fiche mais pas de place : il ne
+                // compte pas dans les references detenues.
+                ProductCount = g.Count(x => x.s.Quantity > 0),
+                TotalQuantity = g.Sum(x => x.s.Quantity),
+            }
+        ).ToListAsync(ct);
+
+        return lignes
+            .Select(l => new WarehouseLoad(l.WarehouseId, l.Name, l.ProductCount, l.TotalQuantity))
+            .OrderByDescending(l => l.TotalQuantity)
+            .ToList();
+    }
 }

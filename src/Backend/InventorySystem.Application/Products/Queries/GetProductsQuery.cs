@@ -22,7 +22,9 @@ public sealed record GetProductsQuery(
     int? MaxQuantity = null,
     bool LowStockOnly = false,
     ProductSortBy SortBy = ProductSortBy.Name,
-    bool SortDescending = false) : IRequest<PagedResult<ProductDto>>;
+    bool SortDescending = false,
+    /// <summary>Restreint a une collection editoriale (correspondance exacte).</summary>
+    string? Collection = null) : IRequest<PagedResult<ProductDto>>;
 
 public sealed class GetProductsQueryHandler : IRequestHandler<GetProductsQuery, PagedResult<ProductDto>>
 {
@@ -40,19 +42,30 @@ public sealed class GetProductsQueryHandler : IRequestHandler<GetProductsQuery, 
         var (page, pageSize) = Pagination.Normalize(request.Page, request.PageSize);
         var (products, totalCount) = await _products.ListPagedAsync(
             page, pageSize, request.Search, request.MinQuantity, request.MaxQuantity, request.LowStockOnly,
-            request.SortBy, request.SortDescending, cancellationToken);
+            request.SortBy, request.SortDescending, request.Collection, cancellationToken);
 
         // Les totaux ne sont récupérés que pour les produits de la page courante — inutile
         // d'agréger tout le stock de tout le catalogue pour n'en afficher qu'une page.
-        var totals = await _stocks.GetTotalQuantitiesAsync(products.Select(p => p.Id), cancellationToken);
+        var ids = products.Select(p => p.Id).ToList();
+        var totals = await _stocks.GetTotalQuantitiesAsync(ids, cancellationToken);
+        // Emplacement principal : l'entrepot qui detient le plus d'unites.
+        var lieux = await _stocks.GetPrimaryLocationsAsync(ids, cancellationToken);
 
         var items = products
             .Select(p =>
             {
                 var total = totals.GetValueOrDefault(p.Id, 0);
+                var lieu = lieux.GetValueOrDefault(p.Id);
+                var emplacement = lieu is null
+                    ? null
+                    : string.IsNullOrWhiteSpace(lieu.Section)
+                        ? lieu.WarehouseName
+                        : $"{lieu.WarehouseName} · {lieu.Section}";
+
                 return new ProductDto(
                     p.Id, p.Sku.Value, p.Name, p.Description, total, p.LowStockThreshold, p.IsLowOnStock(total),
-                    p.ProjectCode, p.Collection, p.VolumeNumber, p.ProductType, p.Year, p.WeightPerCopyLb, p.Company);
+                    p.ProjectCode, p.Collection, p.VolumeNumber, p.ProductType, p.Year, p.WeightPerCopyGrams, p.Company,
+                    emplacement);
             })
             .ToList();
 

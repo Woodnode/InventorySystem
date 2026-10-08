@@ -35,6 +35,14 @@ public sealed class MovementsController : ControllerBase
         return CreatedAtAction(nameof(GetByProduct), new { productId = command.ProductId }, new { id });
     }
 
+    /// <summary>Derniers mouvements tous produits confondus — journal d'activité.</summary>
+    /// <param name="take">Nombre de lignes (1 à 100, défaut 20).</param>
+    [HttpGet("recent")]
+    [ProducesResponseType(typeof(IReadOnlyList<RecentMovementDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<RecentMovementDto>>> GetRecent(
+        [FromQuery] int take = 20, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetRecentMovementsQuery(take), ct));
+
     /// <summary>Historique paginé des mouvements d'un produit, plus récents en premier.</summary>
     [HttpGet("product/{productId:guid}")]
     [ProducesResponseType(typeof(PagedResult<StockMovementDto>), StatusCodes.Status200OK)]
