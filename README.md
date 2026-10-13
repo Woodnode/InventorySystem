@@ -318,24 +318,29 @@ Seule l'étape 18 (déploiement live + artefacts de portfolio) reste ouverte.
         FCM/APNs (nécessiterait un projet Firebase externe), donc ne réveille pas l'app si
         elle est complètement fermée
       - Tests unitaires mobile (`tests/Mobile.UnitTests`, `MovementSyncService`)
-- [ ] Étape 18 : déploiement live (API + frontend) et artefacts de portfolio (captures
-      d'écran, vidéo de démo) — voir §Prochaines étapes ci-dessous.
+- [x] Étape 18 : déploiement en ligne (front sur Cloudflare Pages, API et PostgreSQL sur
+      un serveur Linux), voir §Déploiement ci-dessous.
 
 ---
 
-## Prochaines étapes (à faire manuellement)
+## Déploiement
 
-Le code, les tests, Docker et la CI sont complets. Ce qui reste dépend de comptes/actions
-externes qu'il faut faire soi-même :
+Le site est en ligne : [inventorysystem-jbarret.pages.dev](https://inventorysystem-jbarret.pages.dev).
 
-1. Pousser sur GitHub et vérifier que les 5 jobs CI passent (`backend`, `frontend`,
-   `mobile-unit-tests`, `mobile-build-android`, `mobile-build-windows`) — les deux derniers
-   n'ont pas pu être exécutés dans cet environnement de développement (pas d'accès à GitHub
-   Actions), à corriger au besoin si le workload MAUI échoue à l'installation.
-2. Déployer l'API (Render/Railway/Azure App Service) et appliquer les migrations sur la
-   base de données de production (`dotnet ef database update` avec la chaîne de connexion
-   de prod, ou un job CI dédié).
-3. Déployer le frontend (Vercel/Netlify) avec `VITE_API_URL` pointant vers l'API déployée.
-4. Mettre à jour `Cors:AllowedOrigins` côté API pour inclure le domaine du frontend déployé.
-5. Capturer des captures d'écran et une courte vidéo de démo (login → scan mobile →
-   mouvement → mise à jour temps réel du dashboard web) pour le README/portfolio.
+| Élément | Hébergement |
+|---|---|
+| Frontend React | Cloudflare Pages, reconstruit à chaque push sur `main` |
+| Relais `/api/*` | Cloudflare Pages Functions (`src/Frontend/functions/`) |
+| API ASP.NET Core et PostgreSQL | Conteneurs Docker sur un serveur Linux, derrière Caddy (HTTPS) |
+
+Le relais transmet les appels `/api/*` à l'API : le front et l'API partagent ainsi le même
+domaine, ce qui évite CORS et garde les cookies de session en première partie. Il a besoin
+de deux variables dans le projet Pages :
+
+- `ORIGIN` : adresse HTTPS de l'API sur le serveur ;
+- `PROXY_SECRET` : secret ajouté à chaque requête dans l'en-tête `X-Portfolio-Proxy`.
+  Caddy refuse toute requête qui ne le porte pas.
+
+En production, le front appelle l'API sur la même adresse (`VITE_API_URL=/api/v1`,
+dans `src/Frontend/.env.production`). La CI (`.github/workflows/ci.yml`) compile et teste ;
+elle ne déploie rien.
