@@ -77,7 +77,7 @@ builder.Services
             {
                 var accessToken = context.Request.Query["access_token"];
                 if (!string.IsNullOrEmpty(accessToken) &&
-                    context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    context.HttpContext.Request.Path.StartsWithSegments("/api/v1/hubs"))
                 {
                     context.Token = accessToken;
                 }
