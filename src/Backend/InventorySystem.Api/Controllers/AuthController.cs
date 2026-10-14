@@ -1,14 +1,19 @@
+using InventorySystem.Api.Auth;
 using InventorySystem.Api.Contracts;
 using InventorySystem.Application.Auth.Commands;
 using InventorySystem.Application.Auth.Dtos;
+using InventorySystem.Application.Common.Exceptions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace InventorySystem.Api.Controllers;
 
 /// <summary>
 /// Controller mince : reçoit la requête HTTP, mappe vers une command MediatR, renvoie le résultat.
+/// Le seul travail propre à HTTP est le transport du refresh token : cookie httpOnly pour le
+/// client web, corps JSON pour le client mobile (voir <see cref="RefreshTokenCookie"/>).
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
@@ -47,7 +52,11 @@ public sealed class AuthController : ControllerBase
             return NotFound();
 
         var command = new RegisterCommand(request.Email, request.Password, request.DisplayName, request.Role);
-        return Ok(await _mediator.Send(command, ct));
+        var result = await _mediator.Send(command, ct);
+
+        // Un Admin qui crée un compte ne doit pas voir sa propre session remplacée par celle
+        // du nouvel utilisateur : le cookie n'est posé que pour une inscription libre.
+        return Ok(!isAdmin && RefreshTokenCookie.IsRequestedBy(Request) ? MoveRefreshTokenToCookie(result) : result);
     }
 
     /// <summary>
@@ -62,17 +71,64 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [AllowAnonymous]
     public async Task<ActionResult<AuthResultDto>> Login(LoginRequest request, CancellationToken ct)
-        => Ok(await _mediator.Send(new LoginCommand(request.Email, request.Password), ct));
+    {
+        var result = await _mediator.Send(new LoginCommand(request.Email, request.Password), ct);
+        return Ok(RefreshTokenCookie.IsRequestedBy(Request) ? MoveRefreshTokenToCookie(result) : result);
+    }
 
     /// <summary>
     /// Renouvelle l'access token à partir d'un refresh token valide (rotation).
-    /// 400 : requête malformée (token vide). 401 : token invalide/expiré/réutilisé.
+    /// Le jeton est lu d'abord dans le cookie (client web), sinon dans le corps (client mobile),
+    /// et le nouveau jeton repart par le même canal. 401 : token absent/invalide/expiré/réutilisé.
     /// </summary>
     [HttpPost("refresh")]
     [ProducesResponseType(typeof(AuthResultDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [AllowAnonymous]
-    public async Task<ActionResult<AuthResultDto>> Refresh(RefreshTokenRequest request, CancellationToken ct)
-        => Ok(await _mediator.Send(new RefreshTokenCommand(request.RefreshToken), ct));
+    public async Task<ActionResult<AuthResultDto>> Refresh(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RefreshTokenRequest? request,
+        CancellationToken ct)
+    {
+        var cookieToken = RefreshTokenCookie.Read(Request);
+        var refreshToken = cookieToken ?? request?.RefreshToken;
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            throw new AuthenticationException("Refresh token manquant.");
+
+        AuthResultDto result;
+        try
+        {
+            result = await _mediator.Send(new RefreshTokenCommand(refreshToken), ct);
+        }
+        catch (AuthenticationException) when (cookieToken is not null)
+        {
+            // Jeton révoqué ou expiré : inutile que le navigateur le renvoie encore.
+            RefreshTokenCookie.Delete(Response);
+            throw;
+        }
+
+        return Ok(cookieToken is not null ? MoveRefreshTokenToCookie(result) : result);
+    }
+
+    /// <summary>
+    /// Ferme la session : révoque la famille du refresh token (cookie, sinon corps) et efface
+    /// le cookie. Anonyme, car l'access token peut déjà avoir expiré ; toujours 204.
+    /// </summary>
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [AllowAnonymous]
+    public async Task<IActionResult> Logout(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RefreshTokenRequest? request,
+        CancellationToken ct)
+    {
+        await _mediator.Send(new LogoutCommand(RefreshTokenCookie.Read(Request) ?? request?.RefreshToken), ct);
+        RefreshTokenCookie.Delete(Response);
+        return NoContent();
+    }
+
+    /// <summary>Pose le refresh token en cookie et le retire du corps, que le JavaScript ne le voie jamais.</summary>
+    private AuthResultDto MoveRefreshTokenToCookie(AuthResultDto result)
+    {
+        RefreshTokenCookie.Append(Response, result.RefreshToken!, result.RefreshTokenExpiresAtUtc);
+        return result with { RefreshToken = null };
+    }
 }

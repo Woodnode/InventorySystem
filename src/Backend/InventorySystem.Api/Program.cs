@@ -34,6 +34,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // --- CORS restreint aux origines connues (React dev/prod) ---
+// AllowCredentials : le front servi sur un autre port (docker compose) doit pouvoir joindre
+// le cookie du refresh token. Sans danger ici, les origines sont listées une à une.
 const string CorsPolicy = "AllowFrontend";
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
 
@@ -44,6 +46,7 @@ builder.Services.AddCors(options =>
                     ?? new[] { "http://localhost:5173" })
               .AllowAnyHeader()
               .AllowAnyMethod()
+              .AllowCredentials()
               .WithExposedHeaders("X-Export-Truncated")));
 
 // --- Authentification JWT (voir plan §6) ---

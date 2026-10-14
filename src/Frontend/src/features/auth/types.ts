@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
-/** Schéma aligné sur AuthResultDto côté backend. */
+/**
+ * Schéma aligné sur AuthResultDto côté backend. Pas de refreshToken : le client web le
+ * reçoit en cookie httpOnly, l'API ne le met dans le corps que pour le client mobile.
+ */
 export const authResultSchema = z.object({
   accessToken: z.string(),
   accessTokenExpiresAtUtc: z.string(),
-  refreshToken: z.string(),
   email: z.string(),
   displayName: z.string(),
   roles: z.array(z.string()),

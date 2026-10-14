@@ -1,41 +1,48 @@
 /**
- * Source de vérité unique pour les tokens, en dehors de React : l'intercepteur axios
+ * Source de vérité unique pour la session, en dehors de React : l'intercepteur axios
  * (module chargé une fois, hors de l'arbre de composants) et AuthContext lisent/écrivent
- * tous les deux ici, avec persistance localStorage pour survivre à un refresh de page.
+ * tous les deux ici.
+ *
+ * Aucun jeton n'est persisté côté JavaScript. L'access token ne vit qu'en mémoire
+ * (variable `current` ci-dessous) ; le refresh token voyage dans un cookie httpOnly posé
+ * par l'API, que le script de la page ne peut ni lire ni exfiltrer. Après un rechargement,
+ * `current` vaut null jusqu'à ce qu'AuthProvider déclenche un refresh silencieux au
+ * montage : le navigateur joint le cookie de lui-même (voir AuthContext.tsx).
  */
 export interface StoredAuth {
   accessToken: string;
   accessTokenExpiresAtUtc: string;
-  refreshToken: string;
   email: string;
   displayName: string;
   roles: string[];
 }
 
 /**
- * Ce qui survit à un refresh de page. L'access token n'y figure volontairement PAS :
- * il ne vit qu'en mémoire (variable `current` ci-dessous), pour qu'un XSS lisant
- * localStorage ne récupère jamais un bearer token directement utilisable — seulement
- * un refresh token, qui doit repasser par /auth/refresh (et est rotatif côté backend).
- * Après un rechargement, `current.accessToken` vaut '' jusqu'à ce qu'AuthProvider
- * déclenche un refresh silencieux au montage (voir AuthContext.tsx).
+ * Seul ce drapeau survit au rechargement : il ne contient aucun jeton ni donnée de profil,
+ * il indique seulement qu'une session a été ouverte dans ce navigateur. Il évite un appel
+ * à /auth/refresh voué à l'échec pour un visiteur jamais connecté, et sert de signal entre
+ * onglets (voir l'écouteur 'storage' plus bas).
  */
-type PersistedAuth = Omit<StoredAuth, 'accessToken'>;
+const SESSION_HINT_KEY = 'inventory.session';
 
-const STORAGE_KEY = 'inventory.auth';
-
-function readFromStorage(): StoredAuth | null {
+function writeSessionHint(present: boolean): void {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const persisted = JSON.parse(raw) as PersistedAuth;
-    return { ...persisted, accessToken: '' };
+    if (present) localStorage.setItem(SESSION_HINT_KEY, '1');
+    else localStorage.removeItem(SESSION_HINT_KEY);
   } catch {
-    return null;
+    // Stockage indisponible (navigation privée stricte) : la session reste valable dans cet onglet.
   }
 }
 
-let current: StoredAuth | null = readFromStorage();
+export function hasSessionHint(): boolean {
+  try {
+    return localStorage.getItem(SESSION_HINT_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+let current: StoredAuth | null = null;
 
 type Listener = (auth: StoredAuth | null) => void;
 const listeners = new Set<Listener>();
@@ -49,37 +56,40 @@ export function getAuth(): StoredAuth | null {
 }
 
 export function setAuth(auth: StoredAuth): void {
-  current = auth;
-  const persisted: PersistedAuth = {
+  current = {
+    accessToken: auth.accessToken,
     accessTokenExpiresAtUtc: auth.accessTokenExpiresAtUtc,
-    refreshToken: auth.refreshToken,
     email: auth.email,
     displayName: auth.displayName,
     roles: auth.roles,
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+  writeSessionHint(true);
   notify();
 }
 
 export function clearAuth(): void {
   current = null;
-  localStorage.removeItem(STORAGE_KEY);
+  writeSessionHint(false);
   notify();
 }
 
-// Synchronisation multi-onglets : le refresh token est rotatif côté backend (chaque
-// /auth/refresh révoque l'ancien), donc si deux onglets sont ouverts sur la même session,
-// celui qui n'a pas déclenché le refresh doit apprendre le nouveau token — sinon son
-// prochain refresh tente d'utiliser un token déjà consommé et se déconnecte à tort.
-// L'event 'storage' ne se déclenche que dans les AUTRES onglets, jamais dans celui qui
-// écrit — pas de boucle avec setAuth/clearAuth ci-dessus.
+// Synchronisation multi-onglets. Le cookie est partagé par tous les onglets, donc la
+// rotation du refresh token ne demande plus rien : chaque onglet renouvelle avec le
+// dernier cookie posé. Reste à propager la connexion et la déconnexion : l'event
+// 'storage' ne se déclenche que dans les AUTRES onglets, jamais dans celui qui écrit,
+// donc pas de boucle avec setAuth/clearAuth ci-dessus.
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
-    if (event.key !== STORAGE_KEY) return;
-    current = event.newValue
-      ? { ...(JSON.parse(event.newValue) as PersistedAuth), accessToken: '' }
-      : null;
-    notify();
+    if (event.key !== SESSION_HINT_KEY) return;
+    if (event.newValue === null) {
+      // Déconnexion dans un autre onglet : le cookie est déjà effacé, on oublie l'access token.
+      current = null;
+      notify();
+    } else if (!current) {
+      // Connexion dans un autre onglet : AuthProvider voit l'indicateur et relance un
+      // refresh silencieux pour obtenir son propre access token.
+      notify();
+    }
   });
 }
 
