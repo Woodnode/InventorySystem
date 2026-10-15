@@ -34,6 +34,12 @@ public interface IRefreshTokenRepository
     /// Réutilisation hors fenêtre de grâce : révoque toute la <c>FamilyId</c> et renvoie true.
     /// </summary>
     Task<bool> TryHandleReuseAsync(string tokenHash, CancellationToken ct = default);
+
+    /// <summary>
+    /// Déconnexion : révoque tous les jetons encore actifs de la famille du jeton donné.
+    /// Sans effet si le jeton est inconnu.
+    /// </summary>
+    Task RevokeFamilyAsync(string tokenHash, CancellationToken ct = default);
 }
 
 /// <summary>

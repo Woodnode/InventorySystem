@@ -8,4 +8,8 @@ public sealed record RegisterRequest(
     string DisplayName,
     string Role);
 
-public sealed record RefreshTokenRequest(string RefreshToken);
+/// <summary>
+/// Corps de /auth/refresh et /auth/logout pour le client mobile. Facultatif pour le client web,
+/// dont le jeton arrive dans le cookie httpOnly.
+/// </summary>
+public sealed record RefreshTokenRequest(string? RefreshToken);

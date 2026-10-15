@@ -5,7 +5,7 @@ import { clearAuth, getAuth, setAuth, type StoredAuth } from '../auth/tokenStora
  * Client HTTP typé consommant la même API REST ASP.NET Core que l'app mobile.
  * L'intercepteur attache le JWT et gère le refresh automatique sur 401 (voir plan §7).
  */
-let apiUrl = import.meta.env.VITE_API_URL ?? 'https://localhost:7296/api/v1';
+let apiUrl = import.meta.env.VITE_API_URL ?? '/api/v1';
 if (window.location.hostname === '10.0.2.2') {
   apiUrl = 'http://10.0.2.2:5244/api/v1';
 }
@@ -24,16 +24,37 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-async function requestNewAccessToken(): Promise<StoredAuth> {
-  const auth = getAuth();
-  if (!auth?.refreshToken) throw new Error('Aucun refresh token disponible.');
+/**
+ * Options communes aux appels d'authentification : le navigateur doit joindre et accepter
+ * le cookie httpOnly du refresh token, et l'API doit savoir que ce client le veut en cookie
+ * plutôt que dans le corps de la réponse (le client mobile, lui, n'envoie pas l'en-tête).
+ */
+export const AUTH_REQUEST_CONFIG = {
+  withCredentials: true,
+  headers: { 'X-Refresh-Token-Transport': 'cookie' },
+} as const;
 
+async function requestNewAccessToken(): Promise<StoredAuth> {
+  // Corps vide : le refresh token part dans le cookie, que ce script ne voit jamais.
   const { data } = await axios.post<StoredAuth>(
     `${apiClient.defaults.baseURL}/auth/refresh`,
-    { refreshToken: auth.refreshToken },
+    undefined,
+    AUTH_REQUEST_CONFIG,
   );
   setAuth(data);
   return data;
+}
+
+/**
+ * Révoque la session côté serveur et efface le cookie. Best effort : la session locale est
+ * fermée quoi qu'il arrive, un échec réseau ne doit pas bloquer la déconnexion.
+ */
+export async function revokeSession(): Promise<void> {
+  try {
+    await axios.post(`${apiClient.defaults.baseURL}/auth/logout`, undefined, AUTH_REQUEST_CONFIG);
+  } catch {
+    // Le jeton expirera de lui-même ; rien d'autre à faire côté client.
+  }
 }
 
 // Un seul refresh en vol à la fois : si plusieurs requêtes échouent en 401 simultanément
@@ -64,7 +85,7 @@ interface RetryableConfig extends InternalAxiosRequestConfig {
 // protégé nommé sous /auth/* (ex. /auth/me, /auth/change-password) doit continuer à
 // bénéficier du refresh-and-retry silencieux, pas être traité comme login/register/refresh
 // eux-mêmes (voir ré-audit).
-const AUTH_ENDPOINTS_WITHOUT_RETRY = ['/auth/login', '/auth/register', '/auth/refresh'];
+const AUTH_ENDPOINTS_WITHOUT_RETRY = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
 
 apiClient.interceptors.response.use(
   (response) => response,

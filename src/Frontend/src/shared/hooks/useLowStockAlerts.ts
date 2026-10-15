@@ -15,7 +15,7 @@ export interface LowStockAlert {
 const AUTO_DISMISS_MS = 10_000;
 
 function hubUrl(): string {
-  let apiUrl = import.meta.env.VITE_API_URL ?? 'https://localhost:7296/api/v1';
+  let apiUrl = import.meta.env.VITE_API_URL ?? '/api/v1';
   if (window.location.hostname === '10.0.2.2') {
     apiUrl = 'http://10.0.2.2:5244/api/v1';
   }

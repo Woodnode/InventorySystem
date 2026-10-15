@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios, { type InternalAxiosRequestConfig } from 'axios';
-import { apiClient } from './client';
+import { apiClient, revokeSession } from './client';
 import { clearAuth, getAuth, setAuth } from '../auth/tokenStorage';
 
 /**
@@ -51,7 +51,6 @@ describe('apiClient 401 interceptor', () => {
     setAuth({
       accessToken: 'stale-access',
       accessTokenExpiresAtUtc: '2026-01-01T00:00:00Z',
-      refreshToken: 'stale-refresh',
       email: 'user@test.local',
       displayName: 'User',
       roles: ['Employe'],
@@ -60,9 +59,9 @@ describe('apiClient 401 interceptor', () => {
 
     await expect(apiClient.post('/auth/login', { email: 'a', password: 'b' })).rejects.toBeTruthy();
 
-    // La session existante (refresh token) ne doit pas avoir été effacée par un simple
-    // mauvais mot de passe sur /auth/login.
-    expect(getAuth()?.refreshToken).toBe('stale-refresh');
+    // La session existante ne doit pas avoir été effacée par un simple mauvais mot de
+    // passe sur /auth/login.
+    expect(getAuth()?.accessToken).toBe('stale-access');
     expect(assignSpy).not.toHaveBeenCalled();
   });
 
@@ -70,18 +69,15 @@ describe('apiClient 401 interceptor', () => {
     setAuth({
       accessToken: 'stale-access',
       accessTokenExpiresAtUtc: '2026-01-01T00:00:00Z',
-      refreshToken: 'stale-refresh',
       email: 'user@test.local',
       displayName: 'User',
       roles: ['Employe'],
     });
     mockAdapterRejecting401('/auth/refresh');
 
-    await expect(
-      apiClient.post('/auth/refresh', { refreshToken: 'stale-refresh' }),
-    ).rejects.toBeTruthy();
+    await expect(apiClient.post('/auth/refresh')).rejects.toBeTruthy();
 
-    expect(getAuth()?.refreshToken).toBe('stale-refresh');
+    expect(getAuth()?.accessToken).toBe('stale-access');
     expect(assignSpy).not.toHaveBeenCalled();
   });
 
@@ -89,7 +85,6 @@ describe('apiClient 401 interceptor', () => {
     setAuth({
       accessToken: 'stale-access',
       accessTokenExpiresAtUtc: '2026-01-01T00:00:00Z',
-      refreshToken: 'stale-refresh',
       email: 'user@test.local',
       displayName: 'User',
       roles: ['Employe'],
@@ -119,7 +114,6 @@ describe('apiClient 401 interceptor', () => {
     setAuth({
       accessToken: 'stale-access',
       accessTokenExpiresAtUtc: '2026-01-01T00:00:00Z',
-      refreshToken: 'stale-refresh',
       email: 'user@test.local',
       displayName: 'User',
       roles: ['Employe'],
@@ -130,7 +124,6 @@ describe('apiClient 401 interceptor', () => {
     const refreshResponse = {
       accessToken: 'fresh-access',
       accessTokenExpiresAtUtc: '2026-01-01T01:00:00Z',
-      refreshToken: 'fresh-refresh',
       email: 'user@test.local',
       displayName: 'User',
       roles: ['Employe'],
@@ -163,10 +156,37 @@ describe('apiClient 401 interceptor', () => {
     expect(response.data).toEqual({ ok: true });
     expect(callCount).toBe(2);
     expect(postSpy).toHaveBeenCalledOnce();
+    // Le refresh token n'est jamais dans le corps : le navigateur joint le cookie httpOnly.
+    const [url, body, config] = postSpy.mock.calls[0];
+    expect(url).toMatch(/\/auth\/refresh$/);
+    expect(body).toBeUndefined();
+    expect(config).toMatchObject({ withCredentials: true });
     expect(assignSpy).not.toHaveBeenCalled();
     // requestNewAccessToken() appelle setAuth(data) : la session en mémoire doit refléter
-    // le nouveau couple de jetons après le refresh silencieux.
+    // le nouvel access token après le refresh silencieux.
     expect(getAuth()?.accessToken).toBe('fresh-access');
-    expect(getAuth()?.refreshToken).toBe('fresh-refresh');
+  });
+});
+
+describe('revokeSession', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls /auth/logout with credentials so the API can revoke and clear the cookie', async () => {
+    const postSpy = vi.spyOn(axios, 'post').mockResolvedValue({ status: 204 });
+
+    await revokeSession();
+
+    const [url, body, config] = postSpy.mock.calls[0];
+    expect(url).toMatch(/\/auth\/logout$/);
+    expect(body).toBeUndefined();
+    expect(config).toMatchObject({ withCredentials: true });
+  });
+
+  it('swallows network errors: logging out must never fail on the client', async () => {
+    vi.spyOn(axios, 'post').mockRejectedValue(new Error('réseau coupé'));
+
+    await expect(revokeSession()).resolves.toBeUndefined();
   });
 });

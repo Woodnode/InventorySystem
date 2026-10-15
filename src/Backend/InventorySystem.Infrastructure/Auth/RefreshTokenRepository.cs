@@ -84,4 +84,21 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
 
         return true;
     }
+
+    public async Task RevokeFamilyAsync(string tokenHash, CancellationToken ct = default)
+    {
+        var familyId = await _db.RefreshTokens
+            .AsNoTracking()
+            .Where(t => t.TokenHash == tokenHash)
+            .Select(t => (Guid?)t.FamilyId)
+            .FirstOrDefaultAsync(ct);
+
+        if (familyId is null)
+            return;
+
+        var now = DateTime.UtcNow;
+        await _db.RefreshTokens
+            .Where(t => t.FamilyId == familyId && t.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAtUtc, now), ct);
+    }
 }

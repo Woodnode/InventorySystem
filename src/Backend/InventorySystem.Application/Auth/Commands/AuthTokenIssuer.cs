@@ -26,18 +26,20 @@ internal static class AuthTokenIssuer
         var accessToken = tokens.GenerateAccessToken(user.Id, user.Email, user.Roles);
         var refreshToken = tokens.GenerateRefreshToken();
         var refreshTokenHash = tokens.HashRefreshToken(refreshToken);
+        var refreshTokenExpiresAtUtc = tokens.GetRefreshTokenExpiryUtc();
         var resolvedFamilyId = familyId ?? Guid.NewGuid();
 
         await refreshTokens.StoreAsync(
             user.Id,
             refreshTokenHash,
-            tokens.GetRefreshTokenExpiryUtc(),
+            refreshTokenExpiresAtUtc,
             resolvedFamilyId,
             replacesTokenId,
             ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return new AuthResultDto(
-            accessToken.Token, accessToken.ExpiresAtUtc, refreshToken, user.Email, user.DisplayName, user.Roles);
+            accessToken.Token, accessToken.ExpiresAtUtc, refreshToken, user.Email, user.DisplayName, user.Roles,
+            refreshTokenExpiresAtUtc);
     }
 }

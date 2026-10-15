@@ -176,8 +176,11 @@ Option A — développement (hot reload) :
 cd src/Frontend
 cp .env.example .env
 npm install
-npm run dev            # http://localhost:5173
+npm run dev            # http://localhost:3000
 ```
+Le serveur Vite relaie `/api` vers l'API (`http://localhost:5244` par défaut, variable
+`API_PROXY_TARGET` pour une autre cible) : le front et l'API partagent ainsi la même adresse,
+comme en production, et le cookie du refresh token circule sans réglage particulier.
 
 Option B — conteneurisé (comme en CI/prod, aucun outil Node requis) :
 ```bash
@@ -215,7 +218,7 @@ de la librairie) — l'app affiche un message à la place plutôt qu'un écran c
 
 | Endpoint | Accès | Note |
 |----------|-------|------|
-| `POST /api/v1/auth/register` \| `/login` \| `/refresh` | Public | Voir §Sécurité |
+| `POST /api/v1/auth/register` \| `/login` \| `/refresh` \| `/logout` | Public | Voir §Sécurité |
 | `POST /api/v1/warehouses` | Gestionnaire+ | `GET` ouvert à Employe+ |
 | `POST /api/v1/suppliers` | Gestionnaire+ | `GET` ouvert à Employe+ |
 | `POST /api/v1/products` | Gestionnaire+ | Crée le produit **et** son stock initial dans un entrepôt existant |
@@ -231,7 +234,16 @@ Ordre obligatoire pour tester dans Swagger : créer un **entrepôt** avant de po
 ## Sécurité
 
 - Authentification par JWT (access token courte durée) + refresh token opaque (rotation :
-  chaque utilisation révoque et remplace le jeton — voir `RefreshTokenCommand`).
+  chaque utilisation révoque et remplace le jeton — voir `RefreshTokenCommand`). Un jeton
+  rejoué hors de la fenêtre de grâce révoque toute sa famille, comme la déconnexion.
+- Côté web, aucun jeton n'est accessible au JavaScript : l'access token reste en mémoire et
+  le refresh token voyage dans un cookie `HttpOnly; Secure; SameSite=Strict` limité à
+  `/api/v1/auth` (voir `RefreshTokenCookie`). Le front le demande par l'en-tête
+  `X-Refresh-Token-Transport: cookie` ; au rechargement de la page, un `/auth/refresh` sans
+  corps suffit à rouvrir la session. Un refresh fait par cookie ne renvoie jamais le jeton
+  dans le corps, si bien qu'un script injecté ne peut pas l'exfiltrer.
+- L'application mobile garde ses jetons dans `SecureStorage` et envoie le refresh token dans
+  le corps de `/auth/refresh` ; l'API répond alors par le même canal, sans cookie.
 - Mots de passe hashés par ASP.NET Core Identity ; verrouillage après 5 tentatives échouées
   (15 minutes) pour limiter le brute-force.
 - Rôles fixes `Admin` / `Gestionnaire` / `Employe`, exposés via des policies
@@ -290,7 +302,8 @@ Seule l'étape 18 (déploiement live + artefacts de portfolio) reste ouverte.
 - [x] Migrations EF Core : `InitialCreate`, `AddWarehousesSuppliersAndStock`,
       `AddStockConcurrencyToken`, `AddStockMovementProductCreatedIndex` — toutes générées,
       à appliquer via `dotnet ef database update` (voir §Démarrage local)
-- [x] Tests d'intégration API (20 scénarios : Register/Login/Refresh/policies de rôles +
+- [x] Tests d'intégration API (30 scénarios : Register/Login/Refresh/Logout, cookie du
+      refresh token, policies de rôles +
       création produit/stock initial/mouvements In-Out/transferts entre entrepôts/stock
       insuffisant, `WebApplicationFactory` + Testcontainers PostgreSQL)
 - [x] Export Excel/CSV (produits + historique des mouvements, global ou par produit —
