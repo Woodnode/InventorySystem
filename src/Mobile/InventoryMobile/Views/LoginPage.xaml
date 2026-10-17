@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- Connexion, reprise de la carte de connexion du web : titre de marque, libellés au-dessus des
+     champs, bouton plein, comptes de démonstration en développement. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
@@ -8,32 +10,74 @@
              Title="Connexion">
 
     <ScrollView>
-        <VerticalStackLayout Padding="30" Spacing="16" VerticalOptions="Center">
+        <Grid Padding="16,24" RowDefinitions="*,Auto,*">
+            <Border Grid.Row="1" Style="{StaticResource Panel}" Padding="20,32" MaximumWidthRequest="440">
+                <VerticalStackLayout Spacing="20">
 
-            <Label Text="Inventaire" Style="{StaticResource Headline}" />
-            <Label Text="Connectez-vous pour continuer" Style="{StaticResource SubHeadline}" FontSize="16" />
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Système d'inventaire" Style="{StaticResource TextDisplay}" FontFamily="PoppinsBold" FontSize="26"
+                               HorizontalTextAlignment="Center" SemanticProperties.HeadingLevel="Level1"
+                               TextColor="{AppThemeBinding Light={StaticResource Brand900}, Dark={StaticResource Brand300}}" />
+                        <Label Text="Bienvenue, veuillez vous connecter." Style="{StaticResource TextBody}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
 
-            <Entry Placeholder="Courriel"
-                   Text="{Binding Email}"
-                   Keyboard="Email"
-                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    <Border Style="{StaticResource ErrorBanner}"
+                            IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                        <Label Text="{Binding ErrorMessage}" Style="{StaticResource ErrorBannerText}" />
+                    </Border>
 
-            <Entry Placeholder="Mot de passe"
-                   Text="{Binding Password}"
-                   IsPassword="True"
-                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Email" Style="{StaticResource TextFieldLabel}" />
+                        <Border Style="{StaticResource Field}">
+                            <Entry x:Name="EmailEntry" Text="{Binding Email}" Keyboard="Email" Placeholder="nom@entreprise.com"
+                                   ReturnType="Next" Completed="OnEmailCompleted"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}"
+                                   SemanticProperties.Description="Email" />
+                        </Border>
+                    </VerticalStackLayout>
 
-            <Label Text="{Binding ErrorMessage}"
-                   TextColor="Red"
-                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Mot de passe" Style="{StaticResource TextFieldLabel}" />
+                        <Border Style="{StaticResource Field}" Padding="12,0,4,0">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Entry x:Name="PasswordEntry" Text="{Binding Password}" IsPassword="{Binding IsPasswordHidden}"
+                                       Placeholder="Votre mot de passe" ReturnType="Go" Completed="OnPasswordCompleted"
+                                       IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}"
+                                       SemanticProperties.Description="Mot de passe" />
+                                <Button Grid.Column="1" Style="{StaticResource IconButton}" BorderWidth="0" BackgroundColor="Transparent"
+                                        Text="{Binding PasswordToggleIcon}" Command="{Binding TogglePasswordCommand}"
+                                        SemanticProperties.Description="{Binding PasswordToggleDescription}" />
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
 
-            <Button Text="Se connecter"
-                    Command="{Binding LoginCommand}"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    <Grid>
+                        <Button Text="Se connecter" Command="{Binding LoginCommand}" Margin="0,4,0,0"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="White"
+                                           HorizontalOptions="End" Margin="0,4,16,0" HeightRequest="22" WidthRequest="22" />
+                    </Grid>
 
-            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                    <!-- Comptes de démonstration (builds de développement uniquement). -->
+                    <Border Style="{StaticResource Inset}" Padding="14" IsVisible="{Binding HasDemoAccounts}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Comptes de démonstration" Style="{StaticResource TextFieldLabel}" HorizontalTextAlignment="Center" />
+                            <Label Text="{Binding DemoPasswordLine}" Style="{StaticResource TextMeta}" FontFamily="monospace" HorizontalTextAlignment="Center" />
+                            <FlexLayout Wrap="Wrap" JustifyContent="Center" BindableLayout.ItemsSource="{Binding DemoAccounts}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="viewmodels:DemoAccount">
+                                        <Button Style="{StaticResource GhostButton}" Text="{Binding Label}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:LoginViewModel}}, Path=FillDemoCommand, x:DataType=viewmodels:LoginViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </Border>
 
-        </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </ScrollView>
 
 </ContentPage>

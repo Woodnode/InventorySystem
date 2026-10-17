@@ -1,41 +1,72 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- Scan d'un code-barres ou du QR imprimé sur la fiche web : le code lu est le SKU. Sous la
+     caméra, la saisie manuelle prend le relais pour une étiquette abîmée, une caméra refusée ou
+     un poste Windows. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
              xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
              x:Class="InventoryMobile.Views.ScanPage"
              x:DataType="viewmodels:ScanViewModel"
-             Title="Scanner">
+             Title="Scanner un code">
 
     <Grid RowDefinitions="*,Auto">
 
-        <zxing:CameraBarcodeReaderView
-            Grid.Row="0"
-            x:Name="BarcodeView"
-            IsVisible="{Binding ShowCamera}"
-            IsDetecting="{Binding IsDetecting}"
-            BarcodesDetected="OnBarcodesDetected" />
+        <!-- Zone caméra -->
+        <Grid BackgroundColor="#0F172A">
+            <zxing:CameraBarcodeReaderView
+                x:Name="BarcodeView"
+                IsVisible="{Binding ShowCamera}"
+                IsDetecting="{Binding IsDetecting}"
+                BarcodesDetected="OnBarcodesDetected" />
 
-        <Label Grid.Row="0"
-               Text="Le scan par caméra n'est pas disponible sur Windows."
-               IsVisible="{Binding IsWindowsUnsupported}"
-               HorizontalOptions="Center"
-               VerticalOptions="Center" />
+            <!-- Cadre de visée : il dit où placer le code, sans rien masquer de l'image. -->
+            <Border IsVisible="{Binding ShowCamera}" WidthRequest="260" HeightRequest="170" StrokeThickness="3" Stroke="White"
+                    StrokeShape="{StaticResource ShapeCard}" BackgroundColor="Transparent" InputTransparent="True"
+                    HorizontalOptions="Center" VerticalOptions="Center" />
+            <Border IsVisible="{Binding ShowCamera}" Style="{StaticResource Pill}" BackgroundColor="#CC0F172A"
+                    HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,20" Padding="14,6" InputTransparent="True">
+                <Label Text="Visez le code-barres ou le QR du produit" TextColor="White" FontFamily="OpenSansSemiBold" FontSize="14" />
+            </Border>
 
-        <Label Grid.Row="0"
-               Text="Permission caméra refusée. Autorisez l'appareil photo dans les réglages."
-               IsVisible="{Binding ShowPermissionDenied}"
-               HorizontalOptions="Center"
-               VerticalOptions="Center"
-               Margin="24" />
+            <VerticalStackLayout IsVisible="{Binding ShowPermissionDenied}" Padding="32" Spacing="12" VerticalOptions="Center">
+                <Label Text="{x:Static icons:Icons.Camera}" Style="{StaticResource Icon}" FontSize="40" TextColor="White" />
+                <Label Text="La caméra n'est pas autorisée" TextColor="White" FontFamily="PoppinsBold" FontSize="18" HorizontalTextAlignment="Center" />
+                <Label Text="Autorisez l'appareil photo dans les réglages pour scanner, ou saisissez le code ci-dessous."
+                       TextColor="#CBD5E1" FontSize="14" HorizontalTextAlignment="Center" />
+                <Button Text="Ouvrir les réglages" Style="{StaticResource SecondaryButton}" HorizontalOptions="Center"
+                        Command="{Binding OpenSettingsCommand}" />
+            </VerticalStackLayout>
 
-        <VerticalStackLayout Grid.Row="1" Padding="16" Spacing="8">
-            <Label Text="{Binding ErrorMessage}"
-                   TextColor="Red"
-                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+            <VerticalStackLayout IsVisible="{Binding IsWindowsUnsupported}" Padding="32" Spacing="12" VerticalOptions="Center">
+                <Label Text="{x:Static icons:Icons.Barcode}" Style="{StaticResource Icon}" FontSize="40" TextColor="White" />
+                <Label Text="Le scan par caméra n'est pas disponible sur Windows. Saisissez le code ci-dessous."
+                       TextColor="#CBD5E1" FontSize="14" HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </Grid>
 
-            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
-        </VerticalStackLayout>
+        <!-- Saisie manuelle -->
+        <Border Grid.Row="1" StrokeThickness="0" StrokeShape="RoundRectangle 20,20,0,0" Margin="0,-20,0,0" Padding="16,20,16,24"
+                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="Saisir le code" Style="{StaticResource TextFieldLabel}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Border Style="{StaticResource Field}">
+                        <Entry Text="{Binding ManualCode}" Placeholder="SKU, par exemple LIV-0102" Keyboard="Text"
+                               ReturnType="Search" ReturnCommand="{Binding SearchManualCodeCommand}"
+                               SemanticProperties.Description="Code du produit" />
+                    </Border>
+                    <Button Grid.Column="1" Text="Rechercher" Command="{Binding SearchManualCodeCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                </Grid>
+
+                <Border Style="{StaticResource ErrorBanner}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                    <Label Text="{Binding ErrorMessage}" Style="{StaticResource ErrorBannerText}" />
+                </Border>
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HeightRequest="24" />
+            </VerticalStackLayout>
+        </Border>
 
     </Grid>
 

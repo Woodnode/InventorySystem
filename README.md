@@ -192,8 +192,12 @@ reconstruire l'image (`docker compose build frontend`).
 
 ### 4. Mobile (MAUI)
 
-Auth + liste produits + mouvements (scan QR/code-barres, mode hors-ligne avec file
-d'attente SQLite, notifications de stock bas en temps réel) : lance l'API en profil **http**
+Quatre onglets qui reprennent la navigation du web (tableau de bord, produits, mouvements,
+entrepôts), fiche produit avec saisie d'un mouvement, scan QR/code-barres ou saisie du SKU,
+mode hors-ligne avec file d'attente SQLite, notifications de stock bas en temps réel. Même
+identité que le web : palette ardoise et bleu de marque, Poppins et Open Sans, icônes
+Phosphor, thèmes clair et sombre. En Debug, l'écran de connexion propose les comptes de
+démonstration de `DemoUserSeeder`. Lance l'API en profil **http**
 (`dotnet run --project src/Backend/InventorySystem.Api --launch-profile http`, port 5244),
 le client mobile pointe dessus automatiquement (`ApiConfig.cs`, sans configuration
 supplémentaire — y compris le hub SignalR `ApiConfig.StockHubUrl`). Le profil HTTP est
@@ -331,6 +335,11 @@ Seule l'étape 18 (déploiement live + artefacts de portfolio) reste ouverte.
         FCM/APNs (nécessiterait un projet Firebase externe), donc ne réveille pas l'app si
         elle est complètement fermée
       - Tests unitaires mobile (`tests/Mobile.UnitTests`, `MovementSyncService`)
+- [x] Mobile MAUI, mise à niveau visuelle sur le web mobile : tableau de bord (stock bas,
+      indicateurs, flux, répartitions), catalogue paginé avec recherche et filtre de stock
+      bas, fiche produit (emplacements, historique, caractéristiques), journal des
+      mouvements avec envoi manuel de la file hors ligne, entrepôts en lecture seule ;
+      polices et icônes régénérées depuis le front par `scripts/generer_ressources.py`
 - [x] Étape 18 : déploiement en ligne (front sur Cloudflare Pages, API et PostgreSQL sur
       un serveur Linux), voir §Déploiement ci-dessous.
 

@@ -2,11 +2,11 @@ using InventoryMobile.ViewModels;
 
 namespace InventoryMobile.Views;
 
-public partial class MovementPage : ContentPage
+public partial class WarehousesPage : ContentPage
 {
-    private readonly MovementViewModel _viewModel;
+    private readonly WarehousesViewModel _viewModel;
 
-    public MovementPage(MovementViewModel viewModel)
+    public WarehousesPage(WarehousesViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -16,6 +16,6 @@ public partial class MovementPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await _viewModel.InitializeAsync();
+        await _viewModel.LoadCommand.ExecuteAsync(null);
     }
 }

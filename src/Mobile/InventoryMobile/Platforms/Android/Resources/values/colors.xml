@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Couleurs natives. colorPrimary teinte la barre d'état derrière la barre de titre des pages
+     poussées : elle prend le fond de page (Colors.xaml) pour ne pas former un bandeau.
+     colorAccent, le bleu de marque du web, colore les contrôles natifs (curseurs, dialogues). -->
 <resources>
-    <color name="colorPrimary">#512BD4</color>
-    <color name="colorPrimaryDark">#2B0B98</color>
-    <color name="colorAccent">#2B0B98</color>
+    <color name="colorPrimary">#F8FAFC</color>
+    <color name="colorPrimaryDark">#F8FAFC</color>
+    <color name="colorAccent">#184E77</color>
 </resources>

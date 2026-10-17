@@ -8,9 +8,9 @@ public partial class AppShell : Shell
     {
         InitializeComponent();
 
-        // "login" et "products" sont déclarés en ShellContent (navigation absolue //).
-        // "movement" et "scan" sont poussés sur la pile via RegisterRoute.
-        Routing.RegisterRoute("movement", typeof(MovementPage));
+        // "login" et les onglets sont déclarés dans AppShell.xaml (navigation absolue //).
+        // La fiche produit et le scan sont poussés sur la pile de l'onglet courant.
+        Routing.RegisterRoute("product", typeof(ProductDetailPage));
         Routing.RegisterRoute("scan", typeof(ScanPage));
     }
 }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thème sombre : fond #0f172a et accent vert clair de la marque, comme la classe .dark du web. -->
+<resources>
+    <color name="colorPrimary">#0F172A</color>
+    <color name="colorPrimaryDark">#0F172A</color>
+    <color name="colorAccent">#99D98C</color>
+</resources>

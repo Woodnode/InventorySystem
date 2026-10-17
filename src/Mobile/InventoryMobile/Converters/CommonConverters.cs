@@ -1,5 +1,4 @@
 using System.Globalization;
-using InventoryMobile.Infrastructure.Api;
 
 namespace InventoryMobile.Converters;
 
@@ -29,22 +28,6 @@ public sealed class IntGreaterThanZeroConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is int i && i > 0;
-
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
-}
-
-/// <summary>Libellé français pour un <see cref="MobileMovementType"/> affiché dans un Picker.</summary>
-public sealed class MovementTypeLabelConverter : IValueConverter
-{
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value switch
-        {
-            MobileMovementType.In => "Entrée",
-            MobileMovementType.Out => "Sortie",
-            MobileMovementType.Transfer => "Transfert",
-            _ => value?.ToString() ?? string.Empty,
-        };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

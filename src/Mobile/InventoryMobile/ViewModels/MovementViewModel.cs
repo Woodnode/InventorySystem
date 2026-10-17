@@ -11,13 +11,13 @@ using Refit;
 namespace InventoryMobile.ViewModels;
 
 /// <summary>
-/// Enregistrement d'un mouvement de stock pour un produit donné. Le produit arrive via la
-/// navigation Shell (<see cref="ApplyQueryAttributes"/>), pas via un rechargement réseau :
-/// <see cref="ProductsViewModel"/> l'a déjà en mémoire. Sans connexion (ou en cas de panne
-/// réseau), le mouvement est mis en file d'attente locale via <see cref="ILocalMovementQueue"/>
-/// plutôt que perdu — voir <see cref="QueueLocallyAsync"/>.
+/// Formulaire d'enregistrement d'un mouvement de stock, posé dans la fiche produit
+/// (<see cref="ProductDetailViewModel"/>) comme sur le web. Le type et les entrepôts se
+/// choisissent par segments et puces plutôt que par listes déroulantes : toutes les options
+/// restent visibles. Sans connexion (ou en cas de panne réseau), le mouvement est mis en file
+/// d'attente locale via <see cref="ILocalMovementQueue"/> plutôt que perdu.
 /// </summary>
-public sealed partial class MovementViewModel : ObservableObject, IQueryAttributable
+public sealed partial class MovementViewModel : ObservableObject
 {
     private readonly IInventoryApi _api;
     private readonly ILocalMovementQueue _localQueue;
@@ -28,12 +28,23 @@ public sealed partial class MovementViewModel : ObservableObject, IQueryAttribut
         _api = api;
         _localQueue = localQueue;
         _connectivity = connectivity;
+        TypeChoices = OptionChoice.Single(
+            AvailableTypes.Select(t => (t, FrenchFormat.MovementType(t))), SelectedType, type => SelectedType = type);
     }
+
+    /// <summary>Déclenché après un enregistrement en ligne réussi : la fiche recharge stock et historique.</summary>
+    public event EventHandler? Recorded;
 
     public ObservableCollection<WarehouseResponse> Warehouses { get; } = [];
 
     public IReadOnlyList<MobileMovementType> AvailableTypes { get; } =
         [MobileMovementType.In, MobileMovementType.Out, MobileMovementType.Transfer];
+
+    public IReadOnlyList<OptionChoice> TypeChoices { get; }
+
+    public ObservableCollection<OptionChoice> WarehouseChoices { get; } = [];
+
+    public ObservableCollection<OptionChoice> ToWarehouseChoices { get; } = [];
 
     [ObservableProperty]
     private ProductResponse? _product;
@@ -62,24 +73,51 @@ public sealed partial class MovementViewModel : ObservableObject, IQueryAttribut
     [ObservableProperty]
     private string? _successMessage;
 
-    /// <summary>Contrôle l'affichage du sélecteur d'entrepôt de destination dans la vue.</summary>
+    /// <summary>Contrôle l'affichage du choix de l'entrepôt de destination.</summary>
     public bool IsTransfer => SelectedType == MobileMovementType.Transfer;
+
+    public string SourceLabel => IsTransfer ? "Depuis l'entrepôt" : "Entrepôt";
 
     partial void OnSelectedTypeChanged(MobileMovementType value)
     {
+        OptionChoice.SelectValue(TypeChoices, value);
+        ErrorMessage = null;
         OnPropertyChanged(nameof(IsTransfer));
+        OnPropertyChanged(nameof(SourceLabel));
         if (value != MobileMovementType.Transfer)
         {
             SelectedToWarehouse = null;
         }
     }
 
-    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    // Un nouveau choix efface l'erreur de la tentative précédente : elle ne décrit plus le formulaire.
+    partial void OnSelectedWarehouseChanged(WarehouseResponse? value)
     {
-        if (query.TryGetValue("Product", out var value) && value is ProductResponse product)
+        OptionChoice.SelectValue(WarehouseChoices, value);
+        ErrorMessage = null;
+    }
+
+    partial void OnSelectedToWarehouseChanged(WarehouseResponse? value)
+    {
+        OptionChoice.SelectValue(ToWarehouseChoices, value);
+        ErrorMessage = null;
+    }
+
+    /// <summary>Entrepôts déjà chargés par la fiche : seuls les actifs reçoivent un mouvement.</summary>
+    public void UseWarehouses(IEnumerable<WarehouseResponse> warehouses)
+    {
+        Warehouses.Clear();
+        WarehouseChoices.Clear();
+        ToWarehouseChoices.Clear();
+        foreach (var warehouse in warehouses.Where(w => w.IsActive).OrderBy(w => w.Name))
         {
-            Product = product;
+            Warehouses.Add(warehouse);
+            WarehouseChoices.Add(new OptionChoice(warehouse, warehouse.Name, c => SelectedWarehouse = (WarehouseResponse)c.Value));
+            ToWarehouseChoices.Add(new OptionChoice(warehouse, warehouse.Name, c => SelectedToWarehouse = (WarehouseResponse)c.Value));
         }
+
+        SelectedWarehouse = Warehouses.FirstOrDefault(w => w.Id == SelectedWarehouse?.Id) ?? Warehouses.FirstOrDefault();
+        OptionChoice.SelectValue(WarehouseChoices, SelectedWarehouse);
     }
 
     public async Task InitializeAsync()
@@ -90,14 +128,7 @@ public sealed partial class MovementViewModel : ObservableObject, IQueryAttribut
         {
             IsBusy = true;
             ErrorMessage = null;
-
-            var warehouses = await _api.GetWarehousesAsync();
-            Warehouses.Clear();
-            foreach (var warehouse in warehouses.Where(w => w.IsActive).OrderBy(w => w.Name))
-            {
-                Warehouses.Add(warehouse);
-            }
-            SelectedWarehouse = Warehouses.FirstOrDefault();
+            UseWarehouses(await _api.GetWarehousesAsync());
         }
         catch (Exception)
         {
@@ -107,6 +138,15 @@ public sealed partial class MovementViewModel : ObservableObject, IQueryAttribut
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private void Increment() => Quantity++;
+
+    [RelayCommand]
+    private void Decrement()
+    {
+        if (Quantity > 1) Quantity--;
     }
 
     [RelayCommand]
@@ -162,8 +202,11 @@ public sealed partial class MovementViewModel : ObservableObject, IQueryAttribut
 
             await _api.RecordMovementAsync(request);
 
-            SuccessMessage = "Mouvement enregistré.";
+            // « Transfert » est masculin, « Entrée » et « Sortie » féminins.
+            SuccessMessage = $"{FrenchFormat.MovementType(SelectedType)} de {Quantity} " +
+                (SelectedType == MobileMovementType.Transfer ? "enregistré." : "enregistrée.");
             ResetForm();
+            Recorded?.Invoke(this, EventArgs.Empty);
         }
         catch (ApiException ex) when (
             ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Conflict)
@@ -204,7 +247,7 @@ public sealed partial class MovementViewModel : ObservableObject, IQueryAttribut
             Reason = reason,
         });
 
-        SuccessMessage = "Pas de connexion : mouvement mis en file d'attente, sera synchronisé automatiquement.";
+        SuccessMessage = "Pas de connexion : le mouvement est gardé sur l'appareil et partira dès le retour du réseau.";
         ResetForm();
     }
 

@@ -17,10 +17,19 @@ public interface IInventoryApi
     [Post("/auth/refresh")]
     Task<AuthResultResponse> RefreshAsync([Body] RefreshTokenRequest request, CancellationToken ct = default);
 
-    /// <summary>Paginé côté backend (le catalogue grandit sans borne) — voir <see cref="PagedResponse{T}"/>.</summary>
+    /// <summary>
+    /// Paginé côté backend (le catalogue grandit sans borne) — voir <see cref="PagedResponse{T}"/>.
+    /// <paramref name="search"/> porte sur le SKU et le nom, comme la recherche du web ; un
+    /// paramètre nul n'est pas envoyé.
+    /// </summary>
     [Get("/products")]
     Task<PagedResponse<ProductResponse>> GetProductsAsync(
-        int page = 1, int pageSize = 100, CancellationToken ct = default);
+        int page = 1, int pageSize = 100, string? search = null, bool? lowStockOnly = null,
+        CancellationToken ct = default);
+
+    /// <summary>Un produit par id, avec son stock total agrégé (fiche produit).</summary>
+    [Get("/products/{id}")]
+    Task<ProductResponse> GetProductAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Paginé côté backend — alertes stock bas.</summary>
     [Get("/products/low-stock")]
@@ -43,6 +52,18 @@ public interface IInventoryApi
     Task<PagedResponse<MovementResponse>> GetMovementsByProductAsync(
         Guid productId, int page = 1, int pageSize = 20, CancellationToken ct = default);
 
+    /// <summary>Derniers mouvements tous produits confondus (journal de l'écran Mouvements du web).</summary>
+    [Get("/movements/recent")]
+    Task<IReadOnlyList<RecentMovementResponse>> GetRecentMovementsAsync(int take = 20, CancellationToken ct = default);
+
+    /// <summary>Répartition du stock d'un produit, entrepôt par entrepôt.</summary>
+    [Get("/stocks/product/{productId}")]
+    Task<IReadOnlyList<StockResponse>> GetStocksByProductAsync(Guid productId, CancellationToken ct = default);
+
+    /// <summary>Agrégats du tableau de bord, calculés en base sur une fenêtre glissante.</summary>
+    [Get("/dashboard/stats")]
+    Task<DashboardStatsResponse> GetDashboardStatsAsync(int periodDays = 30, CancellationToken ct = default);
+
     [Post("/movements")]
     Task<RecordMovementResult> RecordMovementAsync([Body] RecordMovementRequest request, CancellationToken ct = default);
 }
@@ -50,10 +71,8 @@ public interface IInventoryApi
 // ── Pagination ───────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Reflète PagedResult&lt;T&gt; côté backend. Le jalon 1 mobile n'a pas encore d'écran de
-/// pagination (défilement infini / bouton "page suivante") : les appelants demandent une
-/// grande page (voir GetProductsAsync/GetMovementsByProductAsync) plutôt que de parcourir
-/// les pages. Un vrai contrôle de pagination fait partie du polish du jalon 2.
+/// Reflète PagedResult&lt;T&gt; côté backend. Le catalogue mobile charge vingt produits par page
+/// au fil du défilement ; l'historique d'un produit, dix mouvements par page.
 /// </summary>
 public sealed record PagedResponse<T>(IReadOnlyList<T> Items, int TotalCount, int Page, int PageSize);
 
@@ -74,10 +93,51 @@ public sealed record AuthResultResponse(
 
 // ── Produits ─────────────────────────────────────────────────────────────────
 
-/// <summary>Reflète ProductDto côté backend (stock total agrégé sur tous les entrepôts).</summary>
+/// <summary>
+/// Reflète ProductDto côté backend (stock total agrégé sur tous les entrepôts). Les champs
+/// descriptifs sont optionnels : un produit créé sans eux les renvoie à null.
+/// </summary>
 public sealed record ProductResponse(
     Guid Id, string Sku, string Name, string? Description,
-    int Quantity, int LowStockThreshold, bool IsLowOnStock);
+    int Quantity, int LowStockThreshold, bool IsLowOnStock,
+    string? ProjectCode = null, string? Collection = null, string? VolumeNumber = null,
+    string? ProductType = null, int? Year = null, decimal? WeightPerCopyGrams = null,
+    string? Company = null, string? PrimaryLocation = null);
+
+// ── Stocks ───────────────────────────────────────────────────────────────────
+
+/// <summary>Reflète StockDto côté backend : quantité et emplacement dans un entrepôt.</summary>
+public sealed record StockResponse(
+    Guid ProductId, Guid WarehouseId, int Quantity,
+    string? Section, string? Space, string? Pallet,
+    int BoxesCount, int CopiesPerBox,
+    DateTime? EntryDate, DateTime? ExitDate, string? DistributorName,
+    DateTime? ReturnDate, string? Comment, DateTime? InventoryDate, string? ResponsibleName);
+
+// ── Tableau de bord ──────────────────────────────────────────────────────────
+
+/// <summary>Reflète DailyFlowDto : entrées, sorties et solde d'une journée.</summary>
+public sealed record DailyFlowResponse(DateOnly Date, int In, int Out, int Net);
+
+/// <summary>Reflète WarehouseLoadDto : références et unités détenues par un entrepôt.</summary>
+public sealed record WarehouseLoadResponse(Guid WarehouseId, string Name, int ProductCount, int TotalQuantity);
+
+/// <summary>Reflète CollectionCountDto.</summary>
+public sealed record CollectionCountResponse(string Collection, int Count);
+
+/// <summary>Reflète DashboardStatsDto côté backend.</summary>
+public sealed record DashboardStatsResponse(
+    int TotalProducts,
+    decimal TotalWeightGrams,
+    int ActiveWarehouses,
+    int InactiveWarehouses,
+    IReadOnlyList<CollectionCountResponse> TopCollections,
+    IReadOnlyList<WarehouseLoadResponse> WarehouseLoads,
+    IReadOnlyList<DailyFlowResponse> DailyFlow,
+    int NetCurrentPeriod,
+    int NetPreviousPeriod,
+    double? ChangePercent,
+    int PeriodDays);
 
 // ── Entrepôts ────────────────────────────────────────────────────────────────
 
@@ -115,3 +175,9 @@ public sealed record RecordMovementRequest(
     Guid ClientGuid);
 
 public sealed record RecordMovementResult(Guid Id);
+
+/// <summary>Reflète RecentMovementDto côté backend : mouvement avec noms de produit et d'entrepôts.</summary>
+public sealed record RecentMovementResponse(
+    Guid Id, Guid ProductId, string ProductSku, string ProductName,
+    string WarehouseName, string? ToWarehouseName,
+    MobileMovementType Type, int Quantity, string? Reason, DateTime CreatedAtUtc);
