@@ -32,28 +32,16 @@ public sealed class AccountActions(
         };
     }
 
-    public async Task ShowMenuAsync(Page page)
+    /// <summary>Ouvre la feuille du compte par-dessus la page courante.</summary>
+    public Task ShowMenuAsync(Page page) =>
+        page.Navigation.PushModalAsync(new Views.AccountSheet(this, authService.CurrentSession), animated: false);
+
+    public void SetDarkTheme(bool dark)
     {
-        var session = authService.CurrentSession;
-        var title = session is null
-            ? "Compte"
-            // Le nom affiché porte déjà le rôle (« Émile Demo (Employé) ») : on y ajoute l'adresse.
-            : $"{session.DisplayName}\n{session.Email}";
+        if (Microsoft.Maui.Controls.Application.Current is not { } app) return;
 
-        var app = Microsoft.Maui.Controls.Application.Current!;
-        var isDark = app.RequestedTheme == AppTheme.Dark;
-        var themeLabel = isDark ? "Activer le thème clair" : "Activer le thème sombre";
-
-        var choice = await page.DisplayActionSheetAsync(title, "Annuler", "Déconnexion", themeLabel);
-        if (choice == themeLabel)
-        {
-            app.UserAppTheme = isDark ? AppTheme.Light : AppTheme.Dark;
-            Preferences.Default.Set(ThemeKey, isDark ? "light" : "dark");
-        }
-        else if (choice == "Déconnexion")
-        {
-            await LogoutAsync();
-        }
+        app.UserAppTheme = dark ? AppTheme.Dark : AppTheme.Light;
+        Preferences.Default.Set(ThemeKey, dark ? "dark" : "light");
     }
 
     public async Task LogoutAsync()

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Menu du compte en feuille montant du bas, à la place de la boîte de dialogue Android : même
+     typographie, mêmes surfaces et mêmes rayons que le reste de l'app. On le ferme en touchant le
+     fond, avec le bouton Fermer ou avec le retour Android. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
+             x:Class="InventoryMobile.Views.AccountSheet"
+             BackgroundColor="Transparent"
+             Shell.PresentationMode="ModalNotAnimated"
+             Shell.NavBarIsVisible="False">
+
+    <Grid>
+        <BoxView x:Name="Scrim" Color="#0F172A" Opacity="0">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnCloseRequested" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <Border x:Name="Sheet" VerticalOptions="End" StrokeThickness="0" StrokeShape="RoundRectangle 20,20,0,0"
+                Padding="20,10,20,28" TranslationY="640"
+                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+            <VerticalStackLayout Spacing="18">
+
+                <BoxView WidthRequest="40" HeightRequest="4" CornerRadius="2" HorizontalOptions="Center"
+                         Color="{AppThemeBinding Light={StaticResource LineStrongLight}, Dark={StaticResource LineStrongDark}}" />
+
+                <!-- Identité -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                    <Border WidthRequest="56" HeightRequest="56" StrokeShape="{StaticResource ShapePill}" VerticalOptions="Center"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource AccentSoftLight}, Dark={StaticResource AccentSoftDark}}">
+                        <Label x:Name="InitialsLabel" FontFamily="PoppinsBold" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource AccentInkLight}, Dark={StaticResource AccentInkDark}}" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Label x:Name="NameLabel" Style="{StaticResource TextStrong}" FontSize="17" LineBreakMode="TailTruncation"
+                               TextColor="{AppThemeBinding Light={StaticResource InkLight}, Dark={StaticResource InkDark}}" />
+                        <Label x:Name="EmailLabel" Style="{StaticResource TextMeta}" LineBreakMode="TailTruncation" />
+                        <Border x:Name="RolePill" Style="{StaticResource PillAccent}" Padding="8,1" Margin="0,4,0,0">
+                            <Label x:Name="RoleLabel" Style="{StaticResource PillTextAccent}" FontSize="12" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <Button Grid.Column="2" Style="{StaticResource IconButton}" BorderWidth="0" BackgroundColor="Transparent" VerticalOptions="Start"
+                            Text="{x:Static icons:Icons.Close}" Clicked="OnCloseRequested" SemanticProperties.Description="Fermer" />
+                </Grid>
+
+                <!-- Réglages -->
+                <Border Style="{StaticResource Inset}" Padding="14,6">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" MinimumHeightRequest="52">
+                        <Border Style="{StaticResource IconTile}" WidthRequest="36" HeightRequest="36" VerticalOptions="Center">
+                            <Label x:Name="ThemeIcon" Style="{StaticResource TileIcon}" FontSize="18" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
+                            <Label Text="Thème sombre" Style="{StaticResource TextStrong}" />
+                            <Label Text="Gardé pour les prochains lancements" Style="{StaticResource TextCaption}" />
+                        </VerticalStackLayout>
+                        <Switch x:Name="DarkSwitch" Grid.Column="2" VerticalOptions="Center" Toggled="OnDarkToggled"
+                                SemanticProperties.Description="Thème sombre" />
+                    </Grid>
+                </Border>
+
+                <Button Text="Se déconnecter" Style="{StaticResource DangerButton}" Clicked="OnLogoutClicked"
+                        ImageSource="{FontImageSource Glyph={x:Static icons:Icons.SignOut}, FontFamily=PhosphorBold, Size=18, Color={AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}}"
+                        ContentLayout="Left,10" />
+
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+
+</ContentPage>

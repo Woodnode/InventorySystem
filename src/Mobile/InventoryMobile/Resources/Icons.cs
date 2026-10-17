@@ -40,4 +40,6 @@ public static class Icons
     public const string ArrowRight = "\ue06c";
     public const string UserCircle = "\ue4c4";
     public const string Camera = "\ue10e";
+    public const string Moon = "\ue330";
+    public const string Sun = "\ue472";
 }
