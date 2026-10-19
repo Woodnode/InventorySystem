@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Fiche produit du web. Sur le téléphone, on arrive presque toujours ici après un scan pour
+     enregistrer un mouvement : le formulaire passe donc avant les emplacements, l'historique et
+     les caractéristiques. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
+             x:Class="InventoryMobile.Views.ProductDetailPage"
+             x:DataType="viewmodels:ProductDetailViewModel"
+             Title="Fiche produit">
+
+    <RefreshView IsRefreshing="{Binding IsBusy, Mode=OneWay}" Command="{Binding LoadCommand}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16,8,16,32" Spacing="16">
+
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="{Binding Product.Name}" Style="{StaticResource TextDisplay}" SemanticProperties.HeadingLevel="Level1" />
+                    <Label Text="{Binding Subtitle}" Style="{StaticResource TextMeta}" />
+                    <Grid HorizontalOptions="Start" Margin="0,4,0,0">
+                        <Border Style="{StaticResource PillDanger}" IsVisible="{Binding IsLowOnStock}">
+                            <Label Text="{Binding StockLabel}" Style="{StaticResource PillTextDanger}" />
+                        </Border>
+                        <Border Style="{StaticResource Pill}" IsVisible="{Binding IsLowOnStock, Converter={StaticResource InvertedBoolConverter}}">
+                            <Label Text="{Binding StockLabel}" Style="{StaticResource PillText}" />
+                        </Border>
+                    </Grid>
+                </VerticalStackLayout>
+
+                <Border Style="{StaticResource ErrorBanner}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Text="{Binding ErrorMessage}" Style="{StaticResource ErrorBannerText}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Réessayer" Style="{StaticResource SecondaryButton}" Command="{Binding LoadCommand}" />
+                    </Grid>
+                </Border>
+
+                <!-- Enregistrer un mouvement -->
+                <Border Style="{StaticResource Panel}">
+                    <VerticalStackLayout Spacing="16">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Style="{StaticResource IconTile}">
+                                <Label Text="{x:Static icons:Icons.ArrowsLeftRight}" Style="{StaticResource TileIcon}" />
+                            </Border>
+                            <Label Grid.Column="1" Text="Enregistrer un mouvement" Style="{StaticResource TextTitle}" VerticalOptions="Center"
+                                   SemanticProperties.HeadingLevel="Level2" />
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Type" Style="{StaticResource TextFieldLabel}" />
+                            <Border StrokeShape="{StaticResource ShapeField}" StrokeThickness="1" Padding="4"
+                                    Stroke="{AppThemeBinding Light={StaticResource LineStrongLight}, Dark={StaticResource LineStrongDark}}">
+                                <FlexLayout BindableLayout.ItemsSource="{Binding Form.TypeChoices}" BindableLayout.ItemTemplate="{StaticResource SegmentTemplate}" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="{Binding Form.SourceLabel}" Style="{StaticResource TextFieldLabel}" />
+                            <FlexLayout Wrap="Wrap" Margin="0,0,0,-8" BindableLayout.ItemsSource="{Binding Form.WarehouseChoices}"
+                                        BindableLayout.ItemTemplate="{StaticResource ChipTemplate}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6" IsVisible="{Binding Form.IsTransfer}">
+                            <Label Text="Vers l'entrepôt" Style="{StaticResource TextFieldLabel}" />
+                            <FlexLayout Wrap="Wrap" Margin="0,0,0,-8" BindableLayout.ItemsSource="{Binding Form.ToWarehouseChoices}"
+                                        BindableLayout.ItemTemplate="{StaticResource ChipTemplate}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Quantité" Style="{StaticResource TextFieldLabel}" />
+                            <Grid ColumnDefinitions="Auto,120,Auto" ColumnSpacing="8" HorizontalOptions="Start">
+                                <Button Style="{StaticResource IconButton}" Text="{x:Static icons:Icons.Minus}" Command="{Binding Form.DecrementCommand}"
+                                        WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Retirer une unité" />
+                                <Border Grid.Column="1" Style="{StaticResource Field}">
+                                    <Entry Text="{Binding Form.Quantity}" Keyboard="Numeric" HorizontalTextAlignment="Center"
+                                           FontFamily="OpenSansBold" FontSize="18" SemanticProperties.Description="Quantité" />
+                                </Border>
+                                <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="{x:Static icons:Icons.Plus}" Command="{Binding Form.IncrementCommand}"
+                                        WidthRequest="48" HeightRequest="48" SemanticProperties.Description="Ajouter une unité" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Motif (optionnel)" Style="{StaticResource TextFieldLabel}" />
+                            <Border Style="{StaticResource Field}">
+                                <Entry Text="{Binding Form.Reason}" Placeholder="Réception fournisseur, casse, inventaire..."
+                                       SemanticProperties.Description="Motif" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Border Style="{StaticResource ErrorBanner}" IsVisible="{Binding Form.ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Label Text="{Binding Form.ErrorMessage}" Style="{StaticResource ErrorBannerText}" />
+                        </Border>
+                        <Border Style="{StaticResource InfoBanner}" IsVisible="{Binding Form.SuccessMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <Label Text="{x:Static icons:Icons.CheckCircle}" Style="{StaticResource TileIcon}" FontSize="20" />
+                                <Label Grid.Column="1" Text="{Binding Form.SuccessMessage}" Style="{StaticResource InfoBannerText}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+
+                        <Grid>
+                            <Button Text="Enregistrer le mouvement" Command="{Binding Form.RecordCommand}"
+                                    IsEnabled="{Binding Form.IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                            <ActivityIndicator IsRunning="{Binding Form.IsBusy}" IsVisible="{Binding Form.IsBusy}" Color="White"
+                                               HorizontalOptions="End" Margin="0,0,16,0" HeightRequest="22" WidthRequest="22" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Emplacements (Logistique par entrepôt) -->
+                <Border Style="{StaticResource Panel}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Style="{StaticResource IconTile}">
+                                <Label Text="{x:Static icons:Icons.Warehouse}" Style="{StaticResource TileIcon}" />
+                            </Border>
+                            <Label Grid.Column="1" Text="Emplacements" Style="{StaticResource TextTitle}" VerticalOptions="Center"
+                                   SemanticProperties.HeadingLevel="Level2" />
+                        </Grid>
+                        <Label Text="Aucun stock enregistré dans un entrepôt." Style="{StaticResource TextMeta}"
+                               IsVisible="{Binding HasStocks, Converter={StaticResource InvertedBoolConverter}}" />
+                        <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Stocks}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:StockItem">
+                                    <Border Style="{StaticResource Inset}">
+                                        <VerticalStackLayout Spacing="4">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Label Text="{Binding WarehouseName}" Style="{StaticResource TextStrong}" VerticalOptions="Center" />
+                                                <Border Grid.Column="1" Style="{StaticResource PillAccent}" Padding="8,2">
+                                                    <Label Text="{Binding QuantityLabel}" Style="{StaticResource PillTextAccent}" FontFamily="monospace" FontSize="12" />
+                                                </Border>
+                                            </Grid>
+                                            <HorizontalStackLayout Spacing="4" IsVisible="{Binding HasLocation}">
+                                                <Label Text="{x:Static icons:Icons.MapPin}" Style="{StaticResource Icon}" FontSize="14"
+                                                       TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                                                <Label Text="{Binding Location}" Style="{StaticResource TextMeta}" FontSize="13" />
+                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding Packaging}" Style="{StaticResource TextMeta}" FontSize="13" IsVisible="{Binding HasPackaging}" />
+                                            <Label Style="{StaticResource TextMeta}" FontSize="13" IsVisible="{Binding HasDistributor}">
+                                                <Label.FormattedText>
+                                                    <FormattedString>
+                                                        <Span Text="Distributeur : " />
+                                                        <Span Text="{Binding Distributor}" />
+                                                    </FormattedString>
+                                                </Label.FormattedText>
+                                            </Label>
+                                            <Label Text="{Binding Comment}" Style="{StaticResource TextBody}" FontSize="13" IsVisible="{Binding HasComment}" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Historique -->
+                <Border Style="{StaticResource Panel}">
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Style="{StaticResource IconTile}">
+                                <Label Text="{x:Static icons:Icons.History}" Style="{StaticResource TileIcon}" />
+                            </Border>
+                            <Label Grid.Column="1" Text="Historique" Style="{StaticResource TextTitle}" VerticalOptions="Center"
+                                   SemanticProperties.HeadingLevel="Level2" />
+                        </Grid>
+                        <Label Text="Aucun mouvement pour l'instant." Style="{StaticResource TextMeta}"
+                               IsVisible="{Binding HasHistory, Converter={StaticResource InvertedBoolConverter}}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding History}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:HistoryItem">
+                                    <Grid Padding="0,10" ColumnDefinitions="*,Auto" ColumnSpacing="12" RowDefinitions="Auto,Auto">
+                                        <Label Text="{Binding Title}" Style="{StaticResource TextStrong}" FontSize="14" />
+                                        <Label Grid.Row="1" Text="{Binding Detail}" Style="{StaticResource TextMeta}" FontSize="13" />
+                                        <VerticalStackLayout Grid.Column="1" Grid.RowSpan="2" Spacing="4" HorizontalOptions="End">
+                                            <Grid HorizontalOptions="End">
+                                                <Border Style="{StaticResource PillAccent}" Padding="8,1" IsVisible="{Binding Sign.IsIn}">
+                                                    <Label Text="{Binding Sign.Label}" Style="{StaticResource PillTextAccent}" FontFamily="monospace" FontAttributes="Bold" FontSize="12" />
+                                                </Border>
+                                                <Border Style="{StaticResource PillDanger}" Padding="8,1" IsVisible="{Binding Sign.IsOut}">
+                                                    <Label Text="{Binding Sign.Label}" Style="{StaticResource PillTextDanger}" FontFamily="monospace" FontAttributes="Bold" FontSize="12" />
+                                                </Border>
+                                                <Border Style="{StaticResource Pill}" Padding="8,1" IsVisible="{Binding Sign.IsTransfer}">
+                                                    <Label Text="{Binding Sign.Label}" Style="{StaticResource PillText}" FontFamily="monospace" FontAttributes="Bold" FontSize="12" />
+                                                </Border>
+                                            </Grid>
+                                            <Label Text="{Binding Date}" Style="{StaticResource TextCaption}" HorizontalTextAlignment="End" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Button Text="Voir plus" Style="{StaticResource SecondaryButton}" Command="{Binding LoadMoreHistoryCommand}"
+                                IsVisible="{Binding HasMoreHistory}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Informations générales -->
+                <Border Style="{StaticResource Panel}">
+                    <VerticalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Style="{StaticResource IconTile}">
+                                <Label Text="{x:Static icons:Icons.Package}" Style="{StaticResource TileIcon}" />
+                            </Border>
+                            <Label Grid.Column="1" Text="Informations générales" Style="{StaticResource TextTitle}" VerticalOptions="Center"
+                                   SemanticProperties.HeadingLevel="Level2" />
+                        </Grid>
+                        <FlexLayout Wrap="Wrap" BindableLayout.ItemsSource="{Binding Fields}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:DetailField">
+                                    <VerticalStackLayout FlexLayout.Basis="50%" Padding="0,0,8,14" Spacing="2">
+                                        <Label Text="{Binding Label}" Style="{StaticResource TextMeta}" FontSize="13" />
+                                        <Label Text="{Binding Value}" Style="{StaticResource TextStrong}" FontSize="15" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+
+</ContentPage>

@@ -1,44 +1,77 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
-<ResourceDictionary 
+<!--
+    Jetons de couleur, repris du front web (src/Frontend/src/index.css et Layout.css) :
+    neutres ardoise de Tailwind, bleu de marque #184e77 comme unique accent, rose pour le stock
+    bas, ambre pour une baisse qui n'est pas une erreur. Le mode sombre reprend les valeurs de la
+    classe .dark du web (fond #0f172a, surfaces #1e293b, accent texte #99d98c).
+    Voir aussi Platforms/Android/Resources/values*/colors.xml pour les couleurs natives.
+-->
+<ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- Note: For Android please see also Platforms\Android\Resources\values\colors.xml -->
+    <!-- Palette de marque du web (couleurs brand du thème). -->
+    <Color x:Key="Brand900">#184E77</Color>
+    <Color x:Key="Brand700">#1A759F</Color>
+    <Color x:Key="Brand500">#34A0A4</Color>
+    <Color x:Key="Brand300">#99D98C</Color>
 
-    <Color x:Key="Primary">#512BD4</Color>
-    <Color x:Key="PrimaryDark">#ac99ea</Color>
-    <Color x:Key="PrimaryDarkText">#242424</Color>
-    <Color x:Key="Secondary">#DFD8F7</Color>
-    <Color x:Key="SecondaryDarkText">#9880e5</Color>
-    <Color x:Key="Tertiary">#2B0B98</Color>
+    <!-- Fonds et surfaces -->
+    <Color x:Key="PageLight">#F8FAFC</Color>
+    <Color x:Key="PageDark">#0F172A</Color>
+    <Color x:Key="SurfaceLight">#FFFFFF</Color>
+    <Color x:Key="SurfaceDark">#1E293B</Color>
+    <Color x:Key="SurfaceSunkenLight">#F1F5F9</Color>
+    <Color x:Key="SurfaceSunkenDark">#0F172A</Color>
+    <Color x:Key="TrackLight">#E2E8F0</Color>
+    <Color x:Key="TrackDark">#334155</Color>
 
-    <Color x:Key="White">White</Color>
-    <Color x:Key="Black">Black</Color>
-    <Color x:Key="Magenta">#D600AA</Color>
-    <Color x:Key="MidnightBlue">#190649</Color>
-    <Color x:Key="OffBlack">#1f1f1f</Color>
+    <!-- Filets -->
+    <Color x:Key="LineLight">#E2E8F0</Color>
+    <Color x:Key="LineDark">#334155</Color>
+    <Color x:Key="LineStrongLight">#CBD5E1</Color>
+    <Color x:Key="LineStrongDark">#475569</Color>
 
-    <Color x:Key="Gray100">#E1E1E1</Color>
-    <Color x:Key="Gray200">#C8C8C8</Color>
-    <Color x:Key="Gray300">#ACACAC</Color>
-    <Color x:Key="Gray400">#919191</Color>
-    <Color x:Key="Gray500">#6E6E6E</Color>
-    <Color x:Key="Gray600">#404040</Color>
-    <Color x:Key="Gray900">#212121</Color>
-    <Color x:Key="Gray950">#141414</Color>
+    <!-- Texte : slate-900, slate-700, slate-600 (4,5:1 minimum sur fond blanc comme sur #1e293b). -->
+    <Color x:Key="InkLight">#0F172A</Color>
+    <Color x:Key="InkDark">#F1F5F9</Color>
+    <Color x:Key="InkSoftLight">#334155</Color>
+    <Color x:Key="InkSoftDark">#E2E8F0</Color>
+    <Color x:Key="MutedLight">#475569</Color>
+    <Color x:Key="MutedDark">#CBD5E1</Color>
 
-    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
-    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Secondary}"/>
-    <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource Tertiary}"/>
-    <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}"/>
-    <SolidColorBrush x:Key="BlackBrush" Color="{StaticResource Black}"/>
+    <!-- Accent : boutons pleins en brand-900 dans les deux thèmes, comme le web ; en sombre, les
+         textes d'accent (liens, onglet actif) passent au vert clair de la marque. -->
+    <Color x:Key="AccentLight">#184E77</Color>
+    <Color x:Key="AccentDark">#184E77</Color>
+    <Color x:Key="AccentInkLight">#184E77</Color>
+    <Color x:Key="AccentInkDark">#99D98C</Color>
+    <Color x:Key="AccentSoftLight">#E8EDF1</Color>
+    <Color x:Key="AccentSoftDark">#2D3E45</Color>
+    <Color x:Key="OnAccent">#FFFFFF</Color>
+    <!-- Barres de répartition : brand-700 (4,7:1 contre la piste), brand-500 en sombre. -->
+    <Color x:Key="BarLight">#1A759F</Color>
+    <Color x:Key="BarDark">#34A0A4</Color>
+    <!-- Libellé de rôle (#0f6b6f sur blanc : 6,4:1). -->
+    <Color x:Key="RoleLight">#0F6B6F</Color>
+    <Color x:Key="RoleDark">#99D98C</Color>
 
-    <SolidColorBrush x:Key="Gray100Brush" Color="{StaticResource Gray100}"/>
-    <SolidColorBrush x:Key="Gray200Brush" Color="{StaticResource Gray200}"/>
-    <SolidColorBrush x:Key="Gray300Brush" Color="{StaticResource Gray300}"/>
-    <SolidColorBrush x:Key="Gray400Brush" Color="{StaticResource Gray400}"/>
-    <SolidColorBrush x:Key="Gray500Brush" Color="{StaticResource Gray500}"/>
-    <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}"/>
-    <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
-    <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
+    <!-- Stock bas, sorties, erreurs : rose-700/800 sur rose-50/100. -->
+    <Color x:Key="DangerLight">#BE123C</Color>
+    <Color x:Key="DangerDark">#FDA4AF</Color>
+    <Color x:Key="DangerInkLight">#9F1239</Color>
+    <Color x:Key="DangerInkDark">#FECDD3</Color>
+    <Color x:Key="DangerSoftLight">#FFE4E6</Color>
+    <Color x:Key="DangerSoftDark">#4C1D2B</Color>
+    <Color x:Key="DangerLineLight">#FECDD3</Color>
+    <Color x:Key="DangerLineDark">#881337</Color>
+
+    <!-- Baisse sans gravité (variation du flux), stock proche du seuil : ambre-700/900. -->
+    <Color x:Key="WarningLight">#B45309</Color>
+    <Color x:Key="WarningDark">#FBBF24</Color>
+    <Color x:Key="WarningInkLight">#78350F</Color>
+    <Color x:Key="WarningInkDark">#FDE68A</Color>
+    <Color x:Key="WarningSoftLight">#FEF3C7</Color>
+    <Color x:Key="WarningSoftDark">#422006</Color>
+
 </ResourceDictionary>

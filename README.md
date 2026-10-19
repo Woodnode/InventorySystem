@@ -174,7 +174,9 @@ docker compose up -d --build frontend   # http://localhost:5173, cible l'API sur
 
 ### 4. Mobile (MAUI)
 
-L'application mobile couvre l'authentification, la liste des produits, les mouvements, le scan QR et code-barres, le mode hors ligne avec file d'attente SQLite et les notifications de stock bas en temps réel. Lancer l'API avec le profil http (`dotnet run --project src/Backend/InventorySystem.Api --launch-profile http`, port 5244) : le client mobile la trouve sans configuration, hub SignalR compris (`ApiConfig.cs`, `ApiConfig.StockHubUrl`). Le profil http évite, en développement et en démonstration, le certificat auto-signé d'ASP.NET Core, qu'un émulateur ou un simulateur refuse par défaut.
+L'application mobile reprend la navigation du web en quatre onglets : tableau de bord, produits, mouvements et entrepôts. La fiche d'un produit permet d'enregistrer un mouvement, et le produit se retrouve par scan QR ou code-barres, ou en tapant son SKU. Le mode hors ligne garde les mouvements dans une file SQLite, et les alertes de stock bas arrivent en temps réel. L'app a la même identité que le web : palette ardoise et bleu de marque, Poppins et Open Sans, icônes Phosphor, thèmes clair et sombre. En Debug, l'écran de connexion propose les comptes de démonstration de `DemoUserSeeder`.
+
+Lancer l'API avec le profil http (`dotnet run --project src/Backend/InventorySystem.Api --launch-profile http`, port 5244) : le client mobile la trouve sans configuration, hub SignalR compris (`ApiConfig.cs`, `ApiConfig.StockHubUrl`). Le profil http évite, en développement et en démonstration, le certificat auto-signé d'ASP.NET Core, qu'un émulateur ou un simulateur refuse par défaut.
 
 ```bash
 cd src/Mobile
@@ -253,6 +255,8 @@ Docker Compose lance PostgreSQL, pgAdmin, l'API et le frontend, ces deux dernier
 L'application mobile a été construite en deux jalons. Le premier couvre l'authentification, la liste des produits et l'enregistrement d'un mouvement en ligne : contrat Refit complet (`IInventoryApi`) calqué sur les controllers, session persistée dans `SecureStorage` avec rafraîchissement anticipé du jeton (`AuthHeaderHandler`), pages Login, Produits et Mouvement, ViewModels MVVM Community Toolkit et navigation Shell.
 
 Le second ajoute trois fonctions. Le scan QR et code-barres (`ScanViewModel`, ZXing.Net.MAUI) cherche le produit par SKU (`GET /products/by-sku/{sku}`) et préremplit le mouvement ; sous Windows, où la caméra n'est pas gérée, un message s'affiche. Le mode hors ligne range les mouvements dans une file SQLite (`LocalMovement`, pattern Outbox, `sqlite-net-pcl`), rendue idempotente par le `ClientGuid`, et les synchronise au retour sur l'écran des produits, avec un indicateur « en attente ». Enfin, un client SignalR mobile (`IStockAlertHubClient`) écoute le même `StockHub` que le tableau de bord React et affiche une notification locale (Plugin.LocalNotification) à chaque alerte de stock bas. Il n'y a pas de FCM ni d'APNs, qui demanderaient un projet Firebase externe : une app complètement fermée n'est donc pas réveillée. Des tests unitaires couvrent `MovementSyncService` (`tests/Mobile.UnitTests`).
+
+L'application mobile a ensuite été remise au niveau du web mobile. Elle a maintenant un tableau de bord (stock bas, indicateurs, flux de stock, répartitions), un catalogue paginé avec recherche et filtre de stock bas, une fiche produit (emplacements, historique, caractéristiques), un journal des mouvements où l'on peut envoyer à la main la file hors ligne, et la liste des entrepôts en lecture seule. Ses polices et ses icônes sont régénérées depuis le front par `scripts/generer_ressources.py`.
 
 La dernière étape, le déploiement, met le front sur Cloudflare Pages et l'API avec PostgreSQL sur un serveur Linux (voir Déploiement).
 

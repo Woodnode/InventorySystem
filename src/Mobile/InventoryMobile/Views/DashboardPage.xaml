@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Tableau de bord du web en largeur téléphone. Les produits en stock bas passent en tête :
+     c'est ce qui demande une action. Viennent ensuite les indicateurs, le flux de stock et les
+     répartitions, chacun dans un panneau comme sur le web. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             xmlns:controls="clr-namespace:InventoryMobile.Controls"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
+             x:Class="InventoryMobile.Views.DashboardPage"
+             x:DataType="viewmodels:DashboardViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Accueil">
+
+    <Grid RowDefinitions="Auto,*">
+        <controls:AppHeader />
+
+        <RefreshView Grid.Row="1" IsRefreshing="{Binding IsBusy, Mode=OneWay}" Command="{Binding LoadCommand}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16,20,16,32" Spacing="16">
+
+                    <Label Text="Tableau de bord" Style="{StaticResource TextDisplay}" SemanticProperties.HeadingLevel="Level1" />
+
+                    <Border Style="{StaticResource InfoBanner}" IsVisible="{Binding PendingSyncCount, Converter={StaticResource IntGreaterThanZeroConverter}}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Label Text="{x:Static icons:Icons.CloudArrowUp}" Style="{StaticResource TileIcon}" FontSize="20" />
+                            <Label Grid.Column="1" Text="{Binding PendingSyncLabel}" Style="{StaticResource InfoBannerText}" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource ErrorBanner}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Label Text="{Binding ErrorMessage}" Style="{StaticResource ErrorBannerText}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="Réessayer" Style="{StaticResource SecondaryButton}" Command="{Binding LoadCommand}" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Squelette du premier chargement, à la forme des panneaux. -->
+                    <VerticalStackLayout Spacing="16" IsVisible="{Binding ShowSkeleton}">
+                        <Border Style="{StaticResource Panel}" HeightRequest="260" Opacity="0.7">
+                            <VerticalStackLayout Spacing="14">
+                                <BoxView HeightRequest="22" WidthRequest="200" HorizontalOptions="Start" CornerRadius="6"
+                                         Color="{AppThemeBinding Light={StaticResource SurfaceSunkenLight}, Dark={StaticResource TrackDark}}" />
+                                <BoxView HeightRequest="36" CornerRadius="6" Color="{AppThemeBinding Light={StaticResource SurfaceSunkenLight}, Dark={StaticResource TrackDark}}" />
+                                <BoxView HeightRequest="36" CornerRadius="6" Color="{AppThemeBinding Light={StaticResource SurfaceSunkenLight}, Dark={StaticResource TrackDark}}" />
+                                <BoxView HeightRequest="36" CornerRadius="6" Color="{AppThemeBinding Light={StaticResource SurfaceSunkenLight}, Dark={StaticResource TrackDark}}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="16" IsVisible="{Binding IsLoaded}">
+
+                        <!-- Produits en stock bas -->
+                        <Border Style="{StaticResource Panel}">
+                            <VerticalStackLayout Spacing="14">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Style="{StaticResource IconTileDanger}">
+                                        <Label Text="{x:Static icons:Icons.WarningCircle}" Style="{StaticResource TileIconDanger}" />
+                                    </Border>
+                                    <Label Grid.Column="1" Text="Produits en stock bas" Style="{StaticResource TextTitle}" VerticalOptions="Center"
+                                           SemanticProperties.HeadingLevel="Level2" />
+                                </Grid>
+                                <Border Style="{StaticResource PillDanger}" IsVisible="{Binding HasLowStock}">
+                                    <Label Text="{Binding LowStockTotalLabel}" Style="{StaticResource PillTextDanger}" />
+                                </Border>
+
+                                <Label Text="Aucun produit sous le seuil." Style="{StaticResource TextMeta}"
+                                       IsVisible="{Binding HasLowStock, Converter={StaticResource InvertedBoolConverter}}" />
+
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding LowStock}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="viewmodels:LowStockItem">
+                                            <VerticalStackLayout Padding="0,10" Spacing="8" SemanticProperties.Description="{Binding Description}">
+                                                <VerticalStackLayout.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:DashboardViewModel}}, Path=OpenProductCommand, x:DataType=viewmodels:DashboardViewModel}"
+                                                                          CommandParameter="{Binding .}" />
+                                                </VerticalStackLayout.GestureRecognizers>
+                                                <Label Text="{Binding Name}" Style="{StaticResource TextStrong}" LineBreakMode="TailTruncation" />
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <controls:Gauge Value="{Binding Ratio}" FillColor="{Binding FillColor}" VerticalOptions="Center"
+                                                                    TrackColor="{AppThemeBinding Light={StaticResource TrackLight}, Dark={StaticResource TrackDark}}" />
+                                                    <Label Grid.Column="1" VerticalOptions="Center">
+                                                        <Label.FormattedText>
+                                                            <FormattedString>
+                                                                <Span Text="{Binding QuantityLabel}" FontFamily="monospace" FontAttributes="Bold" FontSize="14"
+                                                                      TextColor="{AppThemeBinding Light={StaticResource InkLight}, Dark={StaticResource InkDark}}" />
+                                                                <Span Text="{Binding ThresholdLabel}" FontFamily="monospace" FontSize="14"
+                                                                      TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                                                            </FormattedString>
+                                                        </Label.FormattedText>
+                                                    </Label>
+                                                </Grid>
+                                            </VerticalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+
+                                <Button Text="{Binding SeeAllLowStockLabel}" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding SeeAllLowStockCommand}" IsVisible="{Binding HasMoreLowStock}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Indicateurs : chacun mène à l'écran détaillé. -->
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="12">
+                            <Border Style="{StaticResource Panel}" SemanticProperties.Description="Produits référencés, ouvrir le catalogue">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenProductsCommand}" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="4">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Border Style="{StaticResource IconTile}" HorizontalOptions="Start">
+                                            <Label Text="{x:Static icons:Icons.Package}" Style="{StaticResource TileIcon}" />
+                                        </Border>
+                                        <Label Grid.Column="1" Text="{x:Static icons:Icons.ArrowUpRight}" Style="{StaticResource Icon}" FontSize="18" VerticalOptions="Start"
+                                               TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                                    </Grid>
+                                    <Label Text="Produits référencés" Style="{StaticResource TextMeta}" Margin="0,10,0,0" />
+                                    <Label Text="{Binding TotalProductsLabel}" Style="{StaticResource TextKpi}" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource Panel}" SemanticProperties.Description="Entrepôts actifs, ouvrir la liste">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenWarehousesCommand}" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="4">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Border Style="{StaticResource IconTile}" HorizontalOptions="Start">
+                                            <Label Text="{x:Static icons:Icons.Buildings}" Style="{StaticResource TileIcon}" />
+                                        </Border>
+                                        <Label Grid.Column="1" Text="{x:Static icons:Icons.ArrowUpRight}" Style="{StaticResource Icon}" FontSize="18" VerticalOptions="Start"
+                                               TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                                    </Grid>
+                                    <Label Text="Entrepôts actifs" Style="{StaticResource TextMeta}" Margin="0,10,0,0" />
+                                    <Label Text="{Binding ActiveWarehousesLabel}" Style="{StaticResource TextKpi}" />
+                                    <Label Text="{Binding InactiveWarehousesLabel}" Style="{StaticResource TextCaption}"
+                                           IsVisible="{Binding InactiveWarehousesLabel, Converter={StaticResource StringNotEmptyConverter}}" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <Border Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Panel}">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                    <Border Style="{StaticResource IconTile}" VerticalOptions="Center">
+                                        <Label Text="{x:Static icons:Icons.Scales}" Style="{StaticResource TileIcon}" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                        <Label Text="Poids total du stock" Style="{StaticResource TextMeta}" />
+                                        <Label Text="{Binding TotalWeightLabel}" Style="{StaticResource TextKpi}" FontSize="26" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- Flux de stock -->
+                        <Border Style="{StaticResource Panel}">
+                            <VerticalStackLayout Spacing="14">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Style="{StaticResource IconTile}" VerticalOptions="Start">
+                                        <Label Text="{x:Static icons:Icons.ChartLine}" Style="{StaticResource TileIcon}" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                        <Label Text="Flux de stock" Style="{StaticResource TextTitle}" SemanticProperties.HeadingLevel="Level2" />
+                                        <Label Text="Entrées moins sorties, par jour" Style="{StaticResource TextMeta}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <Grid HorizontalOptions="Start">
+                                    <Border Style="{StaticResource PillAccent}" IsVisible="{Binding VariationIsUp}">
+                                        <HorizontalStackLayout Spacing="4">
+                                            <Label Text="{Binding VariationIcon}" Style="{StaticResource IconBold}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource AccentInkLight}, Dark={StaticResource AccentInkDark}}" />
+                                            <Label Text="{Binding VariationLabel}" Style="{StaticResource PillTextAccent}" />
+                                        </HorizontalStackLayout>
+                                    </Border>
+                                    <Border Style="{StaticResource PillWarning}" IsVisible="{Binding VariationIsDown}">
+                                        <HorizontalStackLayout Spacing="4">
+                                            <Label Text="{Binding VariationIcon}" Style="{StaticResource IconBold}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource WarningInkLight}, Dark={StaticResource WarningInkDark}}" />
+                                            <Label Text="{Binding VariationLabel}" Style="{StaticResource PillTextWarning}" />
+                                        </HorizontalStackLayout>
+                                    </Border>
+                                    <Border Style="{StaticResource Pill}" IsVisible="{Binding VariationIsFlat}">
+                                        <HorizontalStackLayout Spacing="4">
+                                            <Label Text="{Binding VariationIcon}" Style="{StaticResource IconBold}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource InkSoftLight}, Dark={StaticResource InkSoftDark}}" />
+                                            <Label Text="{Binding VariationLabel}" Style="{StaticResource PillText}" />
+                                        </HorizontalStackLayout>
+                                    </Border>
+                                </Grid>
+
+                                <controls:Sparkline Values="{Binding FlowValues}" HeightRequest="64"
+                                                    LineColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}"
+                                                    SemanticProperties.Description="{Binding FlowDescription}" />
+
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                    <VerticalStackLayout>
+                                        <Label Text="Entrées" Style="{StaticResource TextMeta}" />
+                                        <Label Text="{Binding FlowInLabel}" Style="{StaticResource TextNumber}" FontSize="16" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1">
+                                        <Label Text="Sorties" Style="{StaticResource TextMeta}" />
+                                        <Label Text="{Binding FlowOutLabel}" Style="{StaticResource TextNumber}" FontSize="16" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="2">
+                                        <Label Text="Solde" Style="{StaticResource TextMeta}" />
+                                        <Label Text="{Binding FlowNetLabel}" Style="{StaticResource TextNumber}" FontSize="16" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Stock par entrepôt -->
+                        <Border Style="{StaticResource Panel}">
+                            <VerticalStackLayout Spacing="16">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Style="{StaticResource IconTile}">
+                                        <Label Text="{x:Static icons:Icons.Warehouse}" Style="{StaticResource TileIcon}" />
+                                    </Border>
+                                    <Label Grid.Column="1" Text="Stock par entrepôt" Style="{StaticResource TextTitle}" VerticalOptions="Center"
+                                           SemanticProperties.HeadingLevel="Level2" />
+                                </Grid>
+                                <VerticalStackLayout Spacing="16" BindableLayout.ItemsSource="{Binding WarehouseLoads}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="viewmodels:ShareItem">
+                                            <VerticalStackLayout Spacing="6">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TextStrong}" FontSize="14" LineBreakMode="TailTruncation" />
+                                                    <Label Grid.Column="1" Text="{Binding ValueLabel}" Style="{StaticResource TextNumber}" />
+                                                </Grid>
+                                                <controls:Gauge Value="{Binding Ratio}" MinimumFill="0.02"
+                                                                FillColor="{AppThemeBinding Light={StaticResource BarLight}, Dark={StaticResource BarDark}}"
+                                                                TrackColor="{AppThemeBinding Light={StaticResource TrackLight}, Dark={StaticResource TrackDark}}" />
+                                                <Label Text="{Binding Caption}" Style="{StaticResource TextCaption}" />
+                                            </VerticalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Références par collection -->
+                        <Border Style="{StaticResource Panel}">
+                            <VerticalStackLayout Spacing="14">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Border Style="{StaticResource IconTile}">
+                                        <Label Text="{x:Static icons:Icons.Stack}" Style="{StaticResource TileIcon}" />
+                                    </Border>
+                                    <Label Grid.Column="1" Text="Références par collection" Style="{StaticResource TextTitle}" VerticalOptions="Center"
+                                           SemanticProperties.HeadingLevel="Level2" />
+                                </Grid>
+                                <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Collections}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="viewmodels:ShareItem">
+                                            <Grid ColumnDefinitions="120,*,36" ColumnSpacing="12">
+                                                <Label Text="{Binding Name}" Style="{StaticResource TextBody}" FontSize="14" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                                <controls:Gauge Grid.Column="1" Value="{Binding Ratio}" HeightRequest="18" CornerRadius="4" MinimumFill="0.04" VerticalOptions="Center"
+                                                                FillColor="{AppThemeBinding Light={StaticResource BarLight}, Dark={StaticResource BarDark}}"
+                                                                TrackColor="{AppThemeBinding Light={StaticResource SurfaceSunkenLight}, Dark={StaticResource TrackDark}}" />
+                                                <Label Grid.Column="2" Text="{Binding ValueLabel}" Style="{StaticResource TextNumber}" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+
+</ContentPage>

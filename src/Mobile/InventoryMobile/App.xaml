@@ -13,7 +13,6 @@
 
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <converters:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
-            <converters:MovementTypeLabelConverter x:Key="MovementTypeLabelConverter" />
             <converters:IntGreaterThanZeroConverter x:Key="IntGreaterThanZeroConverter" />
         </ResourceDictionary>
     </Application.Resources>

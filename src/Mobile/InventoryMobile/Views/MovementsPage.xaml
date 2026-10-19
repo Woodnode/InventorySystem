@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Journal des derniers mouvements (écran Mouvements du web). Un mouvement s'enregistre depuis
+     la fiche d'un produit : on y arrive en touchant une ligne, ou par le scan. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             xmlns:controls="clr-namespace:InventoryMobile.Controls"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
+             x:Class="InventoryMobile.Views.MovementsPage"
+             x:DataType="viewmodels:MovementsViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Mouvements">
+
+    <Grid RowDefinitions="Auto,*">
+        <controls:AppHeader />
+
+        <RefreshView Grid.Row="1" IsRefreshing="{Binding IsBusy, Mode=OneWay}" Command="{Binding LoadCommand}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16,20,16,32" Spacing="14">
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Mouvements" Style="{StaticResource TextDisplay}" SemanticProperties.HeadingLevel="Level1" />
+                        <Label Text="Derniers mouvements, tous produits confondus. Touchez une ligne pour ouvrir le produit."
+                               Style="{StaticResource TextMeta}" />
+                    </VerticalStackLayout>
+
+                    <!-- Mouvements saisis hors ligne, en attente du réseau. -->
+                    <Border Style="{StaticResource InfoBanner}" IsVisible="{Binding PendingSyncCount, Converter={StaticResource IntGreaterThanZeroConverter}}">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <Label Text="{x:Static icons:Icons.CloudArrowUp}" Style="{StaticResource TileIcon}" FontSize="20" />
+                                <Label Grid.Column="1" Text="{Binding PendingSyncLabel}" Style="{StaticResource InfoBannerText}" VerticalOptions="Center" />
+                            </Grid>
+                            <Button Text="Envoyer maintenant" Style="{StaticResource SecondaryButton}" HorizontalOptions="Start"
+                                    Command="{Binding SendPendingCommand}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Label Text="{Binding SyncMessage}" Style="{StaticResource TextMeta}"
+                           IsVisible="{Binding SyncMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                    <Border Style="{StaticResource ErrorBanner}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Label Text="{Binding ErrorMessage}" Style="{StaticResource ErrorBannerText}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="Réessayer" Style="{StaticResource SecondaryButton}" Command="{Binding LoadCommand}" />
+                        </Grid>
+                    </Border>
+
+                    <VerticalStackLayout Padding="0,24" Spacing="6" IsVisible="{Binding IsEmpty}">
+                        <Label Text="{x:Static icons:Icons.ArrowsLeftRight}" Style="{StaticResource Icon}" FontSize="32"
+                               TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                        <Label Text="Aucun mouvement enregistré pour l'instant. Scannez un produit pour en saisir un."
+                               Style="{StaticResource TextMeta}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+
+                    <Border Style="{StaticResource Surface}" IsVisible="{Binding IsLoaded}">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Movements}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:RecentMovementItem">
+                                    <Grid Padding="16,12" ColumnDefinitions="*,Auto" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MovementsViewModel}}, Path=OpenProductCommand, x:DataType=viewmodels:MovementsViewModel}"
+                                                                  CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
+                                        <Label Text="{Binding ProductName}" Style="{StaticResource TextStrong}" FontSize="15" />
+                                        <Label Grid.Row="1" Text="{Binding ProductSku}" Style="{StaticResource TextCaption}" FontFamily="monospace" />
+                                        <Label Grid.Row="2" Text="{Binding Detail}" Style="{StaticResource TextMeta}" FontSize="13" Margin="0,2,0,0" />
+                                        <VerticalStackLayout Grid.Column="1" Grid.RowSpan="3" Spacing="4" HorizontalOptions="End">
+                                            <Grid HorizontalOptions="End">
+                                                <Border Style="{StaticResource PillAccent}" Padding="8,1" IsVisible="{Binding Sign.IsIn}">
+                                                    <Label Text="{Binding Sign.Label}" Style="{StaticResource PillTextAccent}" FontFamily="monospace" FontAttributes="Bold" FontSize="12" />
+                                                </Border>
+                                                <Border Style="{StaticResource PillDanger}" Padding="8,1" IsVisible="{Binding Sign.IsOut}">
+                                                    <Label Text="{Binding Sign.Label}" Style="{StaticResource PillTextDanger}" FontFamily="monospace" FontAttributes="Bold" FontSize="12" />
+                                                </Border>
+                                                <Border Style="{StaticResource Pill}" Padding="8,1" IsVisible="{Binding Sign.IsTransfer}">
+                                                    <Label Text="{Binding Sign.Label}" Style="{StaticResource PillText}" FontFamily="monospace" FontAttributes="Bold" FontSize="12" />
+                                                </Border>
+                                            </Grid>
+                                            <Label Text="{Binding Date}" Style="{StaticResource TextCaption}" HorizontalTextAlignment="End" />
+                                        </VerticalStackLayout>
+                                        <BoxView Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource Divider}" VerticalOptions="End" Margin="-16,0,-16,-12" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+
+</ContentPage>

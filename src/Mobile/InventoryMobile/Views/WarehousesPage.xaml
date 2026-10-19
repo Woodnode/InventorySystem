@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Entrepôts en lecture seule (écran Entrepôts du web). Leur gestion reste sur le web,
+     réservée aux gestionnaires. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
+             xmlns:controls="clr-namespace:InventoryMobile.Controls"
+             xmlns:api="clr-namespace:InventoryMobile.Infrastructure.Api;assembly=InventoryMobile.Infrastructure"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
+             x:Class="InventoryMobile.Views.WarehousesPage"
+             x:DataType="viewmodels:WarehousesViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Entrepôts">
+
+    <Grid RowDefinitions="Auto,*">
+        <controls:AppHeader />
+
+        <RefreshView Grid.Row="1" IsRefreshing="{Binding IsBusy, Mode=OneWay}" Command="{Binding LoadCommand}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16,20,16,32" Spacing="14">
+
+                    <Label Text="Entrepôts" Style="{StaticResource TextDisplay}" SemanticProperties.HeadingLevel="Level1" />
+
+                    <Border Style="{StaticResource Field}" Padding="12,0,8,0">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <Label Text="{x:Static icons:Icons.Search}" Style="{StaticResource Icon}" FontSize="18"
+                                   TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                            <Entry Grid.Column="1" Text="{Binding SearchText}" Placeholder="Nom ou adresse" ReturnType="Search"
+                                   ClearButtonVisibility="WhileEditing" SemanticProperties.Description="Rechercher un entrepôt" />
+                        </Grid>
+                    </Border>
+
+                    <Label Text="{Binding CountLabel}" Style="{StaticResource TextMeta}" IsVisible="{Binding IsLoaded}" />
+
+                    <Border Style="{StaticResource ErrorBanner}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Label Text="{Binding ErrorMessage}" Style="{StaticResource ErrorBannerText}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="Réessayer" Style="{StaticResource SecondaryButton}" Command="{Binding LoadCommand}" />
+                        </Grid>
+                    </Border>
+
+                    <Label Text="{Binding EmptyMessage}" Style="{StaticResource TextMeta}" IsVisible="{Binding IsEmpty}" Margin="0,16" HorizontalTextAlignment="Center" />
+
+                    <Border Style="{StaticResource Surface}" IsVisible="{Binding IsLoaded}">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Warehouses}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="api:WarehouseResponse">
+                                    <Grid Padding="16,14" ColumnDefinitions="Auto,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto">
+                                        <Border Grid.RowSpan="3" Style="{StaticResource IconTile}" VerticalOptions="Start">
+                                            <Label Text="{x:Static icons:Icons.Warehouse}" Style="{StaticResource TileIcon}" />
+                                        </Border>
+                                        <Label Grid.Column="1" Text="{Binding Name}" Style="{StaticResource TextStrong}" />
+                                        <Label Grid.Column="1" Grid.Row="1" Text="{Binding Address}" Style="{StaticResource TextMeta}" FontSize="13"
+                                               IsVisible="{Binding Address, Converter={StaticResource StringNotEmptyConverter}}" />
+                                        <Border Grid.Column="1" Grid.Row="2" Style="{StaticResource Pill}" Margin="0,6,0,0" Padding="8,1"
+                                                IsVisible="{Binding IsActive, Converter={StaticResource InvertedBoolConverter}}">
+                                            <Label Text="Inactif" Style="{StaticResource PillText}" FontSize="12" />
+                                        </Border>
+                                        <BoxView Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource Divider}" VerticalOptions="End" Margin="-16,0,-16,-14" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="La création et la modification des entrepôts se font sur le site web, avec un compte Gestionnaire."
+                           Style="{StaticResource TextCaption}" IsVisible="{Binding IsLoaded}" />
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+
+</ContentPage>

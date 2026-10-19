@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- En-tête des onglets, repris de l'en-tête collant du web : la marque à gauche, le scan et le
+     compte à droite. Le scan y est toujours à portée de pouce, c'est le geste principal sur le
+     terrain. -->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
+             x:Class="InventoryMobile.Controls.AppHeader">
+    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="16,10,16,10"
+          BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+        <Label Text="Inventaire" Style="{StaticResource TextBrand}" VerticalOptions="Center"
+               SemanticProperties.HeadingLevel="Level1" />
+        <Button Grid.Column="1" Style="{StaticResource IconButton}" Text="{x:Static icons:Icons.Barcode}"
+                Clicked="OnScanClicked" SemanticProperties.Description="Scanner un code" />
+        <Button Grid.Column="2" Style="{StaticResource IconButton}" Text="{x:Static icons:Icons.UserCircle}"
+                Clicked="OnAccountClicked" SemanticProperties.Description="Compte et déconnexion" />
+        <BoxView Grid.ColumnSpan="3" Style="{StaticResource Divider}" VerticalOptions="End" Margin="-16,0,-16,-10"
+                 Color="{AppThemeBinding Light={StaticResource LineLight}, Dark={StaticResource LineDark}}" />
+    </Grid>
+</ContentView>

@@ -8,6 +8,9 @@ using Refit;
 
 namespace InventoryMobile.ViewModels;
 
+/// <summary>Compte de démonstration proposé sur l'écran de connexion.</summary>
+public sealed record DemoAccount(string Label, string Email);
+
 /// <summary>ViewModel de connexion (plan §8.4, jalon 1 : auth en ligne).</summary>
 public sealed partial class LoginViewModel : ObservableObject
 {
@@ -37,6 +40,49 @@ public sealed partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PasswordToggleIcon), nameof(PasswordToggleDescription))]
+    private bool _isPasswordHidden = true;
+
+    public string PasswordToggleIcon => IsPasswordHidden ? Resources.Icons.Eye : Resources.Icons.EyeSlash;
+
+    public string PasswordToggleDescription => IsPasswordHidden ? "Afficher le mot de passe" : "Masquer le mot de passe";
+
+    /// <summary>
+    /// Comptes créés par DemoUserSeeder sur une base de développement, un par rôle, comme le
+    /// bloc de démonstration du web. Absents d'une build Release : ils n'existent pas en production.
+    /// </summary>
+#if DEBUG
+    public IReadOnlyList<DemoAccount> DemoAccounts { get; } =
+    [
+        new("Employé", "employe@inventaire.invalid"),
+        new("Gestionnaire", "gestionnaire@inventaire.invalid"),
+        new("Admin", "admin@inventaire.invalid"),
+    ];
+
+    public string DemoPassword => "Demo@2026!";
+#else
+    public IReadOnlyList<DemoAccount> DemoAccounts { get; } = [];
+
+    public string DemoPassword => string.Empty;
+#endif
+
+    public bool HasDemoAccounts => DemoAccounts.Count > 0;
+
+    public string DemoPasswordLine => $"Mot de passe : {DemoPassword}";
+
+    [RelayCommand]
+    private void TogglePassword() => IsPasswordHidden = !IsPasswordHidden;
+
+    /// <summary>Remplit le formulaire sans le soumettre : la connexion reste un geste délibéré.</summary>
+    [RelayCommand]
+    private void FillDemo(DemoAccount account)
+    {
+        Email = account.Email;
+        Password = DemoPassword;
+        ErrorMessage = null;
+    }
+
     /// <summary>Restaure une session déjà persistée ; navigue vers les produits si OK.</summary>
     public async Task InitializeAsync()
     {
@@ -48,7 +94,7 @@ public sealed partial class LoginViewModel : ObservableObject
                 // ProductsPage.OnAppearing — les alertes de stock bas doivent arriver pour
                 // toute la session, pas seulement pendant que cet écran précis est affiché.
                 await _stockAlertSessionListener.StartAsync();
-                await _navigation.GoToAsync("//products");
+                await _navigation.GoToAsync("//dashboard");
             }
         }
         catch (Exception)
@@ -69,7 +115,7 @@ public sealed partial class LoginViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
         {
-            ErrorMessage = "Courriel et mot de passe requis.";
+            ErrorMessage = "Email et mot de passe requis.";
             return;
         }
 
@@ -82,7 +128,7 @@ public sealed partial class LoginViewModel : ObservableObject
             Password = string.Empty;
 
             await _stockAlertSessionListener.StartAsync();
-            await _navigation.GoToAsync("//products");
+            await _navigation.GoToAsync("//dashboard");
         }
         catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized
             || ex.StatusCode == System.Net.HttpStatusCode.BadRequest)

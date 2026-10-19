@@ -20,6 +20,9 @@ public partial class App : Microsoft.Maui.Controls.Application
         // AppShell résolu via DI (pas "new AppShell()") : ses pages injectent leur
         // ViewModel par constructeur, il faut donc que la résolution passe par le
         // conteneur de bout en bout (plan §8.4).
+        // Thème choisi depuis le menu du compte, conservé entre deux lancements.
+        Services.AccountActions.RestoreTheme();
+
         var shell = _services.GetRequiredService<AppShell>();
         return new Window(shell);
     }

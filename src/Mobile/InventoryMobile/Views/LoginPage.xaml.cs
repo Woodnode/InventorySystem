@@ -18,4 +18,17 @@ public partial class LoginPage : ContentPage
         base.OnAppearing();
         await _viewModel.InitializeAsync();
     }
+
+    private void OnEmailCompleted(object? sender, EventArgs e) => PasswordEntry.Focus();
+
+    // Entrée sur le mot de passe : on ferme le clavier avant de partir, sinon il restait ouvert
+    // par-dessus le tableau de bord.
+    private void OnPasswordCompleted(object? sender, EventArgs e)
+    {
+        PasswordEntry.Unfocus();
+        if (_viewModel.LoginCommand.CanExecute(null))
+        {
+            _viewModel.LoginCommand.Execute(null);
+        }
+    }
 }

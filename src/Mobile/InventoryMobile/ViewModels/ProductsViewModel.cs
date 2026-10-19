@@ -1,103 +1,146 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using InventoryMobile.Application.Auth;
 using InventoryMobile.Application.Navigation;
-using InventoryMobile.Application.Notifications;
 using InventoryMobile.Infrastructure.Api;
 using InventoryMobile.Infrastructure.Sync;
+using InventoryMobile.Services;
 
 namespace InventoryMobile.ViewModels;
 
 /// <summary>
-/// Liste des produits avec stock total agrégé (miroir de ProductsPage côté web). Rejoue
-/// aussi la file d'attente de mouvements offline à chaque affichage (voir
-/// <see cref="SyncPendingMovementsAsync"/>). L'écoute des alertes de stock bas temps réel
-/// vit désormais au niveau de la session (voir <see cref="IStockAlertSessionListener"/> et
-/// AUDIT.md M-4), pas de cet écran — ce ViewModel n'a plus besoin de connaître SignalR.
+/// Ligne du catalogue, comme la liste mobile du web : titre et SKU, étiquettes de classement,
+/// emplacement principal, quantité et badge de stock bas.
 /// </summary>
-public sealed partial class ProductsViewModel : ObservableObject
+public sealed class ProductRowItem(ProductResponse product)
 {
-    private readonly IInventoryApi _api;
-    private readonly IAuthService _authService;
-    private readonly IMovementSyncService _syncService;
-    private readonly IStockAlertSessionListener _stockAlertSessionListener;
-    private readonly INavigationService _navigation;
+    public ProductResponse Product { get; } = product;
 
-    public ProductsViewModel(
-        IInventoryApi api,
-        IAuthService authService,
-        IMovementSyncService syncService,
-        IStockAlertSessionListener stockAlertSessionListener,
-        INavigationService navigation)
+    public string Name => Product.Name;
+
+    public string Sku => Product.Sku;
+
+    public IReadOnlyList<string> Tags { get; } =
+        [.. new[] { product.Collection, product.ProductType, product.Year?.ToString() }.OfType<string>().Where(t => t.Length > 0)];
+
+    public bool HasTags => Tags.Count > 0;
+
+    public string? Location => Product.PrimaryLocation;
+
+    public bool HasLocation => !string.IsNullOrWhiteSpace(Product.PrimaryLocation);
+
+    public string QuantityLabel => $"{FrenchFormat.Number(Product.Quantity)} restant{(Product.Quantity > 1 ? "s" : "")}";
+
+    public bool IsLowOnStock => Product.IsLowOnStock;
+}
+
+/// <summary>
+/// Catalogue paginé côté serveur, comme le web : recherche par SKU ou titre, filtre « stock
+/// bas », vingt produits par page chargés au fil du défilement. L'ancienne version parcourait
+/// tout le catalogue (jusqu'à cinquante pages de cent) à chaque affichage. Rejoue aussi la file
+/// d'attente des mouvements hors ligne avant de charger.
+/// </summary>
+public sealed partial class ProductsViewModel : ObservableObject, IQueryAttributable
+{
+    private const int PageSize = 20;
+
+    private readonly IInventoryApi _api;
+    private readonly IMovementSyncService _syncService;
+    private readonly INavigationService _navigation;
+    private CancellationTokenSource? _searchDebounce;
+    private int _loadedPage;
+    private bool _initialized;
+
+    public ProductsViewModel(IInventoryApi api, IMovementSyncService syncService, INavigationService navigation)
     {
         _api = api;
-        _authService = authService;
         _syncService = syncService;
-        _stockAlertSessionListener = stockAlertSessionListener;
         _navigation = navigation;
+        Filters = OptionChoice.Single(
+            [(false, "Tous les produits"), (true, "Stock bas")], false, lowOnly => LowStockOnly = lowOnly);
     }
 
-    public ObservableCollection<ProductResponse> Products { get; } = [];
+    public ObservableCollection<ProductRowItem> Products { get; } = [];
+
+    public IReadOnlyList<OptionChoice> Filters { get; }
 
     [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
+    private bool _isLoadingMore;
+
+    [ObservableProperty]
     private string? _errorMessage;
 
     [ObservableProperty]
-    private string? _displayName;
+    private string _searchText = string.Empty;
+
+    [ObservableProperty]
+    private bool _lowStockOnly;
+
+    [ObservableProperty]
+    private int _totalCount;
 
     [ObservableProperty]
     private int _pendingSyncCount;
 
-    /// <summary>
-    /// Nombre de produits sous leur seuil de réappro, lu depuis l'endpoint dédié
-    /// GET /products/low-stock — jusqu'ici jamais appelé côté mobile (voir AUDIT.md M-1),
-    /// alors que le catalogue complet était parcouru en boucle rien que pour cette info.
-    /// </summary>
-    [ObservableProperty]
-    private int _lowStockCount;
+    public string CountLabel => FrenchFormat.Count(TotalCount, "produit", "produits");
+
+    public bool HasMore => Products.Count < TotalCount;
+
+    public string EmptyMessage => string.IsNullOrWhiteSpace(SearchText)
+        ? LowStockOnly ? "Aucun produit sous le seuil." : "Aucun produit au catalogue."
+        : $"Aucun produit ne correspond à « {SearchText.Trim()} ».";
+
+    public string PendingSyncLabel => PendingSyncCount > 1
+        ? $"{PendingSyncCount} mouvements attendent le réseau pour être envoyés."
+        : "1 mouvement attend le réseau pour être envoyé.";
+
+    partial void OnTotalCountChanged(int value) => OnPropertyChanged(nameof(CountLabel));
+
+    partial void OnPendingSyncCountChanged(int value) => OnPropertyChanged(nameof(PendingSyncLabel));
+
+    partial void OnLowStockOnlyChanged(bool value)
+    {
+        OptionChoice.SelectValue(Filters, value);
+        if (_initialized) _ = LoadAsync();
+    }
+
+    // Recherche débouncée comme sur le web : une requête après 300 ms sans frappe, pas une par lettre.
+    partial void OnSearchTextChanged(string value)
+    {
+        _searchDebounce?.Cancel();
+        var debounce = _searchDebounce = new CancellationTokenSource();
+        _ = Task.Delay(300, debounce.Token).ContinueWith(
+            _ => MainThread.BeginInvokeOnMainThread(() => _ = LoadAsync()),
+            debounce.Token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+    }
+
+    /// <summary>Le tableau de bord ouvre la liste déjà filtrée sur le stock bas.</summary>
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("LowStockOnly", out var value) && value is bool lowOnly)
+        {
+            LowStockOnly = lowOnly;
+        }
+    }
 
     public async Task InitializeAsync()
     {
-        DisplayName = _authService.CurrentSession?.DisplayName;
+        // Rejouer la file d'attente AVANT de charger les produits : les quantités affichées
+        // doivent déjà refléter les mouvements hors ligne synchronisés.
+        try
+        {
+            PendingSyncCount = (await _syncService.SyncPendingAsync()).RemainingPendingCount;
+        }
+        catch (Exception)
+        {
+            // Best-effort : le prochain passage sur cette page réessaiera.
+        }
 
-        // Rejouer la file d'attente AVANT de charger les produits : si des mouvements
-        // offline sont synchronisés avec succès, les quantités affichées doivent déjà
-        // refléter les mises à jour de stock qu'ils ont provoquées côté serveur.
-        await SyncPendingMovementsAsync();
+        _initialized = true;
         await LoadAsync();
-    }
-
-    private async Task SyncPendingMovementsAsync()
-    {
-        try
-        {
-            var result = await _syncService.SyncPendingAsync();
-            PendingSyncCount = result.RemainingPendingCount;
-        }
-        catch (Exception)
-        {
-            // Best-effort : une synchronisation ratée ne doit jamais empêcher l'affichage
-            // des produits. Le prochain passage sur cette page réessaiera.
-        }
-    }
-
-    private async Task LoadLowStockCountAsync()
-    {
-        try
-        {
-            // pageSize=1 : seul TotalCount nous intéresse ici, pas la page d'items.
-            var response = await _api.GetLowStockAsync(page: 1, pageSize: 1);
-            LowStockCount = response.TotalCount;
-        }
-        catch (Exception)
-        {
-            // Best-effort, comme le reste de LoadAsync : ne bloque jamais l'affichage du
-            // catalogue pour un badge secondaire.
-        }
     }
 
     [RelayCommand]
@@ -110,29 +153,15 @@ public sealed partial class ProductsViewModel : ObservableObject
             IsBusy = true;
             ErrorMessage = null;
 
-            // Parcourt les pages backend (pageSize max 100) pour afficher tout le catalogue.
-            const int pageSize = 100;
-            const int maxPages = 50;
-            var all = new List<ProductResponse>();
-            var page = 1;
-            var totalCount = int.MaxValue;
-
-            while (page <= maxPages && all.Count < totalCount)
-            {
-                var response = await _api.GetProductsAsync(page, pageSize);
-                totalCount = response.TotalCount;
-                all.AddRange(response.Items);
-                if (response.Items.Count == 0) break;
-                page++;
-            }
-
+            var response = await FetchPageAsync(1);
             Products.Clear();
-            foreach (var product in all.OrderBy(p => p.Name))
+            foreach (var product in response.Items)
             {
-                Products.Add(product);
+                Products.Add(new ProductRowItem(product));
             }
 
-            await LoadLowStockCountAsync();
+            _loadedPage = 1;
+            TotalCount = response.TotalCount;
         }
         catch (Exception)
         {
@@ -141,29 +170,53 @@ public sealed partial class ProductsViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+            OnPropertyChanged(nameof(HasMore));
+            OnPropertyChanged(nameof(EmptyMessage));
         }
     }
 
     [RelayCommand]
-    private async Task SelectProductAsync(ProductResponse? product)
+    private async Task LoadMoreAsync()
     {
-        if (product is null) return;
+        if (IsBusy || IsLoadingMore || !HasMore) return;
 
-        await _navigation.GoToAsync(
-            "movement",
-            new Dictionary<string, object> { ["Product"] = product });
+        try
+        {
+            IsLoadingMore = true;
+            var response = await FetchPageAsync(_loadedPage + 1);
+            foreach (var product in response.Items)
+            {
+                Products.Add(new ProductRowItem(product));
+            }
+
+            _loadedPage++;
+            TotalCount = response.TotalCount;
+        }
+        catch (Exception)
+        {
+            // La page suivante sera redemandée au prochain défilement.
+        }
+        finally
+        {
+            IsLoadingMore = false;
+            OnPropertyChanged(nameof(HasMore));
+        }
+    }
+
+    private Task<PagedResponse<ProductResponse>> FetchPageAsync(int page) =>
+        _api.GetProductsAsync(
+            page, PageSize,
+            string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim(),
+            LowStockOnly ? true : null);
+
+    [RelayCommand]
+    private async Task SelectProductAsync(ProductRowItem? item)
+    {
+        if (item is null) return;
+
+        await _navigation.GoToAsync("product", new Dictionary<string, object> { ["Product"] = item.Product });
     }
 
     [RelayCommand]
-    private async Task LogoutAsync()
-    {
-        // Une session déconnectée ne doit plus recevoir d'alertes ni garder une connexion
-        // authentifiée avec un token qui va être effacé.
-        await _stockAlertSessionListener.StopAsync();
-        await _authService.LogoutAsync();
-        await _navigation.GoToAsync("//login");
-    }
-
-    [RelayCommand]
-    private async Task ScanAsync() => await _navigation.GoToAsync("scan");
+    private Task ScanAsync() => _navigation.GoToAsync("scan");
 }

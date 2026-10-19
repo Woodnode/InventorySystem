@@ -1,23 +1,32 @@
 <?xml version="1.0" encoding="UTF-8" ?>
+<!-- Navigation : la connexion, puis quatre onglets qui reprennent la navigation du web
+     (Tableau de bord, Produits, Mouvements, Entrepôts). La fiche produit et le scan sont
+     poussés par-dessus (voir AppShell.xaml.cs). Fournisseurs reste sur le web : c'est un écran
+     de gestionnaire, sans usage sur le terrain. -->
 <Shell
     x:Class="InventoryMobile.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:views="clr-namespace:InventoryMobile.Views"
-    Title="InventoryMobile"
+    xmlns:icons="clr-namespace:InventoryMobile.Resources"
+    Title="Inventaire"
     FlyoutBehavior="Disabled">
 
-    <!-- ShellContent racine (navigation absolue //login / //products) ; Flyout désactivé. -->
     <ShellContent
         Title="Connexion"
         FlyoutItemIsVisible="False"
         ContentTemplate="{DataTemplate views:LoginPage}"
         Route="login" />
 
-    <ShellContent
-        Title="Produits"
-        FlyoutItemIsVisible="False"
-        ContentTemplate="{DataTemplate views:ProductsPage}"
-        Route="products" />
+    <TabBar Route="main">
+        <ShellContent Title="Accueil" Route="dashboard" ContentTemplate="{DataTemplate views:DashboardPage}"
+                      Icon="{FontImageSource Glyph={x:Static icons:Icons.ChartLine}, FontFamily=PhosphorRegular, Size=24}" />
+        <ShellContent Title="Produits" Route="products" ContentTemplate="{DataTemplate views:ProductsPage}"
+                      Icon="{FontImageSource Glyph={x:Static icons:Icons.Package}, FontFamily=PhosphorRegular, Size=24}" />
+        <ShellContent Title="Mouvements" Route="movements" ContentTemplate="{DataTemplate views:MovementsPage}"
+                      Icon="{FontImageSource Glyph={x:Static icons:Icons.ArrowsLeftRight}, FontFamily=PhosphorRegular, Size=24}" />
+        <ShellContent Title="Entrepôts" Route="warehouses" ContentTemplate="{DataTemplate views:WarehousesPage}"
+                      Icon="{FontImageSource Glyph={x:Static icons:Icons.Warehouse}, FontFamily=PhosphorRegular, Size=24}" />
+    </TabBar>
 
 </Shell>

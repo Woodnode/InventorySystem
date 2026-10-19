@@ -1,80 +1,122 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- Catalogue, repris de la liste mobile du web : recherche par SKU ou titre, filtre de stock
+     bas, une ligne par produit avec ses étiquettes, son emplacement et sa quantité. -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:InventoryMobile.ViewModels"
-             xmlns:api="clr-namespace:InventoryMobile.Infrastructure.Api;assembly=InventoryMobile.Infrastructure"
+             xmlns:controls="clr-namespace:InventoryMobile.Controls"
+             xmlns:icons="clr-namespace:InventoryMobile.Resources"
              x:Class="InventoryMobile.Views.ProductsPage"
              x:DataType="viewmodels:ProductsViewModel"
+             Shell.NavBarIsVisible="False"
              Title="Produits">
 
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Scanner" Command="{Binding ScanCommand}" />
-    </ContentPage.ToolbarItems>
+    <Grid RowDefinitions="Auto,Auto,*">
+        <controls:AppHeader />
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16">
+        <VerticalStackLayout Grid.Row="1" Padding="16,20,16,8" Spacing="12">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Text="Produits" Style="{StaticResource TextDisplay}" VerticalOptions="Center" SemanticProperties.HeadingLevel="Level1" />
+                <Button Grid.Column="1" Text="Scanner" Style="{StaticResource SecondaryButton}" Command="{Binding ScanCommand}"
+                        ImageSource="{FontImageSource Glyph={x:Static icons:Icons.Barcode}, FontFamily=PhosphorRegular, Size=18, Color={AppThemeBinding Light={StaticResource InkSoftLight}, Dark={StaticResource InkSoftDark}}}"
+                        ContentLayout="Left,8" />
+            </Grid>
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-            <Label Grid.Column="0"
-                   Text="{Binding DisplayName, StringFormat='Bonjour, {0}'}"
-                   FontSize="18"
-                   VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Déconnexion" Command="{Binding LogoutCommand}" />
-        </Grid>
+            <Border Style="{StaticResource Field}" Padding="12,0,8,0">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Label Text="{x:Static icons:Icons.Search}" Style="{StaticResource Icon}" FontSize="18"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                    <Entry Grid.Column="1" Text="{Binding SearchText}" Placeholder="SKU ou titre" ReturnType="Search"
+                           ClearButtonVisibility="WhileEditing" SemanticProperties.Description="Rechercher un produit" />
+                </Grid>
+            </Border>
 
-        <!-- Voir AUDIT.md M-1 : GET /products/low-stock était appelé nulle part côté mobile. -->
-        <Label Grid.Row="1"
-               Text="{Binding LowStockCount, StringFormat='{0} produit(s) sous le seuil de réappro.'}"
-               TextColor="OrangeRed"
-               FontSize="13"
-               IsVisible="{Binding LowStockCount, Converter={StaticResource IntGreaterThanZeroConverter}}"
-               Margin="0,0,0,8" />
+            <Border StrokeShape="{StaticResource ShapeField}" StrokeThickness="1" Padding="4"
+                    Stroke="{AppThemeBinding Light={StaticResource LineLight}, Dark={StaticResource LineDark}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+                <FlexLayout BindableLayout.ItemsSource="{Binding Filters}" BindableLayout.ItemTemplate="{StaticResource SegmentTemplate}" />
+            </Border>
 
-        <Label Grid.Row="2"
-               Text="{Binding PendingSyncCount, StringFormat='{0} mouvement(s) en attente de synchronisation.'}"
-               TextColor="DarkOrange"
-               FontSize="13"
-               IsVisible="{Binding PendingSyncCount, Converter={StaticResource IntGreaterThanZeroConverter}}"
-               Margin="0,0,0,8" />
+            <Label Text="{Binding CountLabel}" Style="{StaticResource TextMeta}" />
 
-        <Label Grid.Row="3"
-               Text="{Binding ErrorMessage}"
-               TextColor="Red"
-               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}"
-               Margin="0,0,0,8" />
+            <Border Style="{StaticResource InfoBanner}" IsVisible="{Binding PendingSyncCount, Converter={StaticResource IntGreaterThanZeroConverter}}">
+                <Label Text="{Binding PendingSyncLabel}" Style="{StaticResource InfoBannerText}" />
+            </Border>
 
-        <RefreshView Grid.Row="4" IsRefreshing="{Binding IsBusy}" Command="{Binding LoadCommand}">
-            <CollectionView ItemsSource="{Binding Products}">
+            <Border Style="{StaticResource ErrorBanner}" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <Label Text="{Binding ErrorMessage}" Style="{StaticResource ErrorBannerText}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="Réessayer" Style="{StaticResource SecondaryButton}" Command="{Binding LoadCommand}" />
+                </Grid>
+            </Border>
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="2" IsRefreshing="{Binding IsBusy, Mode=OneWay}" Command="{Binding LoadCommand}">
+            <CollectionView ItemsSource="{Binding Products}" RemainingItemsThreshold="5"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}"
+                            Margin="16,0,16,0">
                 <CollectionView.EmptyView>
-                    <Label Text="Aucun produit." HorizontalOptions="Center" VerticalOptions="Center" />
+                    <VerticalStackLayout Padding="0,40" Spacing="6" HorizontalOptions="Center">
+                        <Label Text="{x:Static icons:Icons.Package}" Style="{StaticResource Icon}" FontSize="32"
+                               TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                        <Label Text="{Binding EmptyMessage}" Style="{StaticResource TextMeta}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="api:ProductResponse">
-                        <Grid Padding="12" ColumnDefinitions="*,Auto">
+                    <DataTemplate x:DataType="viewmodels:ProductRowItem">
+                        <Grid Padding="4,14" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6" ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ProductsViewModel}}, Path=SelectProductCommand}"
-                                    CommandParameter="{Binding .}" />
+                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:ProductsViewModel}}, Path=SelectProductCommand, x:DataType=viewmodels:ProductsViewModel}"
+                                                      CommandParameter="{Binding .}" />
                             </Grid.GestureRecognizers>
 
-                            <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                <Label Text="{Binding Name}" FontAttributes="Bold" />
-                                <Label Text="{Binding Sku}" FontSize="12" TextColor="Gray" />
-                            </VerticalStackLayout>
+                            <Label Text="{Binding Name}" Style="{StaticResource TextStrong}" FontSize="16" />
+                            <Label Grid.Column="1" Text="{x:Static icons:Icons.CaretRight}" Style="{StaticResource Icon}" FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
 
-                            <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="End">
-                                <Label Text="{Binding Quantity}" FontAttributes="Bold" HorizontalTextAlignment="End" />
-                                <Label Text="Stock bas"
-                                       FontSize="12"
-                                       TextColor="OrangeRed"
-                                       IsVisible="{Binding IsLowOnStock}"
-                                       HorizontalTextAlignment="End" />
-                            </VerticalStackLayout>
+                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Sku}" Style="{StaticResource TextCaption}" FontFamily="monospace" />
+
+                            <FlexLayout Grid.Row="2" Grid.ColumnSpan="2" Wrap="Wrap" IsVisible="{Binding HasTags}" Margin="0,0,0,-6"
+                                        BindableLayout.ItemsSource="{Binding Tags}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <Border Style="{StaticResource Tag}">
+                                            <Label Text="{Binding .}" Style="{StaticResource TagText}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+
+                            <Grid Grid.Row="3" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <HorizontalStackLayout Spacing="4" IsVisible="{Binding HasLocation}" VerticalOptions="Center">
+                                    <Label Text="{x:Static icons:Icons.MapPin}" Style="{StaticResource Icon}" FontSize="14"
+                                           TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+                                    <Label Text="{Binding Location}" Style="{StaticResource TextCaption}" FontSize="13" LineBreakMode="TailTruncation" />
+                                </HorizontalStackLayout>
+                                <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                    <Label Text="{Binding QuantityLabel}" Style="{StaticResource TextNumber}" VerticalOptions="Center">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsLowOnStock}" Value="True">
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource DangerLight}, Dark={StaticResource DangerDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Border Style="{StaticResource PillDanger}" Padding="8,1" IsVisible="{Binding IsLowOnStock}">
+                                        <Label Text="Stock bas" Style="{StaticResource PillTextDanger}" FontSize="12" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </Grid>
+
+                            <BoxView Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource Divider}" VerticalOptions="End" Margin="0,0,0,-14"
+                                     Color="{AppThemeBinding Light={StaticResource LineLight}, Dark={StaticResource LineDark}}" />
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <ActivityIndicator IsRunning="{Binding IsLoadingMore}" IsVisible="{Binding IsLoadingMore}" Margin="0,12,0,24" />
+                </CollectionView.Footer>
             </CollectionView>
         </RefreshView>
-
     </Grid>
 
 </ContentPage>

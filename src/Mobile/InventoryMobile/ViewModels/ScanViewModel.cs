@@ -47,7 +47,12 @@ public sealed partial class ScanViewModel : ObservableObject
 
     public bool ShowCamera => !IsWindowsUnsupported && HasCameraPermission;
 
-    public bool ShowPermissionDenied => !IsWindowsUnsupported && !HasCameraPermission;
+    /// <summary>Faux tant que la demande n'a pas abouti : le message de refus ne clignote pas à l'ouverture.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowPermissionDenied))]
+    private bool _permissionChecked;
+
+    public bool ShowPermissionDenied => PermissionChecked && !IsWindowsUnsupported && !HasCameraPermission;
 
     public bool IsDetecting => ShowCamera && !IsBusy;
 
@@ -67,8 +72,9 @@ public sealed partial class ScanViewModel : ObservableObject
                 status = await Permissions.RequestAsync<Permissions.Camera>();
 
             HasCameraPermission = status == PermissionStatus.Granted;
+            PermissionChecked = true;
             if (!HasCameraPermission)
-                ErrorMessage = "Permission caméra refusée. Autorisez l'appareil photo pour scanner.";
+                ErrorMessage = null;
         }
         catch (Exception)
         {
@@ -77,14 +83,41 @@ public sealed partial class ScanViewModel : ObservableObject
             // au pire l'écran affiche "permission refusée" (voir ré-audit, incohérence avec
             // les autres ViewModels qui se protègent déjà de la même façon).
             HasCameraPermission = false;
+            PermissionChecked = true;
             ErrorMessage = "Impossible de vérifier la permission caméra.";
         }
     }
 
     [RelayCommand]
+    private static void OpenSettings() => AppInfo.Current.ShowSettingsUI();
+
+    /// <summary>Code saisi à la main : étiquette abîmée, caméra refusée ou indisponible.</summary>
+    [ObservableProperty]
+    private string _manualCode = string.Empty;
+
+    [RelayCommand]
+    private async Task SearchManualCodeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ManualCode))
+        {
+            ErrorMessage = "Saisissez un SKU, par exemple LIV-0102.";
+            return;
+        }
+
+        await LookUpAsync(ManualCode.Trim());
+    }
+
+    [RelayCommand]
     private async Task OnBarcodeDetectedAsync(string code)
     {
-        if (IsBusy || string.IsNullOrWhiteSpace(code) || !HasCameraPermission) return;
+        if (!HasCameraPermission) return;
+
+        await LookUpAsync(code);
+    }
+
+    private async Task LookUpAsync(string code)
+    {
+        if (IsBusy || string.IsNullOrWhiteSpace(code)) return;
 
         try
         {
@@ -95,7 +128,7 @@ public sealed partial class ScanViewModel : ObservableObject
             var product = await _api.GetProductBySkuAsync(code);
 
             await _navigation.GoToAsync(
-                "movement",
+                "product",
                 new Dictionary<string, object> { ["Product"] = product });
         }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
