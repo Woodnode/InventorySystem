@@ -9,6 +9,13 @@ namespace InventorySystem.Infrastructure.Auth;
 /// </summary>
 public sealed class IdentityService : IIdentityService
 {
+    /// <summary>
+    /// Hachage factice vérifié quand le courriel est inconnu : la réponse prend alors le même
+    /// temps qu'un mauvais mot de passe, et le chronométrage ne révèle pas les comptes existants.
+    /// </summary>
+    private static readonly Lazy<string> TimingGuardHash =
+        new(() => new PasswordHasher<ApplicationUser>().HashPassword(new ApplicationUser(), Guid.NewGuid().ToString()));
+
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
 
@@ -60,7 +67,10 @@ public sealed class IdentityService : IIdentityService
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user is null)
+        {
+            _userManager.PasswordHasher.VerifyHashedPassword(new ApplicationUser(), TimingGuardHash.Value, password);
             return null;
+        }
 
         ct.ThrowIfCancellationRequested();
 

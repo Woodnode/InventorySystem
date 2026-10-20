@@ -209,7 +209,9 @@ Côté web, le JavaScript n'a accès à aucun jeton. L'access token reste en mé
 
 L'application mobile garde ses jetons dans `SecureStorage` et envoie le refresh token dans le corps de `/auth/refresh`. L'API lui répond par le même canal, sans cookie.
 
-Les mots de passe sont hachés par ASP.NET Core Identity. Un compte est verrouillé 15 minutes après 5 tentatives échouées, ce qui freine les attaques par force brute.
+Les mots de passe sont hachés par ASP.NET Core Identity. Un compte est verrouillé 15 minutes après 5 tentatives échouées, sauf les comptes de démonstration : leurs adresses sont publiques, et n'importe qui pourrait sinon bloquer la démo. La connexion, l'inscription et le rafraîchissement sont limités à 10 requêtes par minute et par adresse IP. Derrière le relais Cloudflare, l'API lit cette adresse dans l'en-tête `X-Real-Client-IP`, posé par le relais et accepté seulement depuis un réseau privé (`ClientIpForwarding`).
+
+Les exports CSV neutralisent les valeurs qui commencent par `=`, `+`, `-` ou `@` : un motif saisi dans un mouvement ne devient jamais une formule dans Excel. L'import refuse un fichier de plus de 5 Mo, un classeur de plus de 50 Mo une fois décompressé et plus de 5 000 lignes.
 
 Les rôles sont fixes (`Admin`, `Gestionnaire`, `Employe`) et exposés par des policies (`RequireAdmin`, `RequireGestionnaireOrAbove`, `RequireEmployeOrAbove`). Aucun controller ne contient de nom de rôle en dur.
 

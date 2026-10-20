@@ -158,7 +158,13 @@ public sealed class ExportService : IExportService
     {
         var stream = new MemoryStream();
         using (var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
-        using (var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)))
+        // InjectionOptions.Escape : une valeur qui commence par =, +, -, @, tabulation ou retour
+        // chariot est préfixée d'une apostrophe. Sans cela, un motif saisi par un employé comme
+        // =HYPERLINK(...) devient une formule active quand un gestionnaire ouvre l'export dans Excel.
+        using (var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            InjectionOptions = InjectionOptions.Escape,
+        }))
         {
             csv.WriteRecords(records);
         }

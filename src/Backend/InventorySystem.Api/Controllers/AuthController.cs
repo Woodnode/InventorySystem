@@ -7,6 +7,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace InventorySystem.Api.Controllers;
 
@@ -17,6 +18,7 @@ namespace InventorySystem.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
+[EnableRateLimiting("auth")]
 public sealed class AuthController : ControllerBase
 {
     private readonly ISender _mediator;

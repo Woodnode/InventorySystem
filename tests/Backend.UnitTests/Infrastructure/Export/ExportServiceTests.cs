@@ -72,4 +72,26 @@ public sealed class ExportServiceTests
 
         content.Should().Contain("Entrée"); // MovementType.In traduit, pas "In" brut
     }
+
+    [Theory]
+    [InlineData("=HYPERLINK(\"https://attaquant.example\";\"Détails\")")]
+    [InlineData("+1+1")]
+    [InlineData("-2+3")]
+    [InlineData("@SUM(1)")]
+    public async Task ExportMovementsAsync_Csv_MotifCommencantParUneFormule_EstNeutralise(string reason)
+    {
+        var movement = new MovementExportRow(
+            Guid.NewGuid(), "SKU-1", "Produit 1", "Entrepôt A", null,
+            MovementType.Out, 1, reason, DateTime.UtcNow);
+
+        var file = await _sut.ExportMovementsAsync(new[] { movement }, ExportFormat.Csv);
+
+        using var reader = new StreamReader(file.Content);
+        var dataLine = (await reader.ReadToEndAsync())
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[1];
+
+        // Excel n'interprète plus la cellule : elle commence par une apostrophe (éventuellement entre guillemets).
+        dataLine.Split(',').Should().NotContain(cell => cell.TrimStart('"').StartsWith(reason[0]));
+        dataLine.Should().Contain("'" + reason[0]);
+    }
 }

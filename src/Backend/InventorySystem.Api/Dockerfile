@@ -18,5 +18,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 ENV ASPNETCORE_URLS=http://+:8080
+# Utilisateur non root fourni par l'image .NET (UID 1654) : une faille dans l'API ne donne pas root.
+USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "InventorySystem.Api.dll"]

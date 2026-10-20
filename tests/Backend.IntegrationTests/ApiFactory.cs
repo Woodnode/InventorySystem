@@ -45,6 +45,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             {
                 ["ConnectionStrings:Postgres"] = _postgres.GetConnectionString(),
                 ["Jwt:Key"] = TestJwtKey,
+                // Tous les tests partagent la même « adresse » : la limite de production les bloquerait.
+                ["RateLimiting:AuthPerMinute"] = "10000",
             });
         });
     }

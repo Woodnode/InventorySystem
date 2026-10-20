@@ -1,0 +1,15 @@
+# Propose chaque semaine les mises à jour des dépendances, dont les correctifs de sécurité.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: "/src/Frontend"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

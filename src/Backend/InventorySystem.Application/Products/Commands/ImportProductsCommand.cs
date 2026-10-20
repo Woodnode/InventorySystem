@@ -16,6 +16,34 @@ public sealed record ImportProductsCommand(Stream FileStream, string FileName) :
 
 public sealed record ImportResult(int ProductsCreated, int ProductsUpdated, List<string> Errors);
 
+/// <summary>
+/// Plafonds de l'import. Un .xlsx est une archive zip : quelques mégaoctets peuvent se décompresser
+/// en gigaoctets (« bombe zip »), et l'import charge les lignes en mémoire sur un serveur partagé.
+/// </summary>
+public static class ImportLimits
+{
+    public const long MaxFileBytes = 5 * 1024 * 1024;
+    public const long MaxUncompressedBytes = 50 * 1024 * 1024;
+    public const int MaxRows = 5_000;
+
+    public static ImportResult TooLarge(string reason) => new(0, 0, new List<string> { reason });
+
+    /// <summary>Taille totale décompressée d'un classeur OOXML, sans rien extraire.</summary>
+    public static long UncompressedSize(Stream workbook)
+    {
+        var start = workbook.Position;
+        try
+        {
+            using var zip = new System.IO.Compression.ZipArchive(workbook, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: true);
+            return zip.Entries.Sum(e => e.Length);
+        }
+        finally
+        {
+            workbook.Position = start;
+        }
+    }
+}
+
 public sealed class CsvProductRecord
 {
     [Name("Code produit")]
@@ -180,6 +208,14 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                 await request.FileStream.CopyToAsync(ms, cancellationToken);
                 ms.Position = 0;
 
+                if (ms.Length > ImportLimits.MaxFileBytes)
+                    return ImportLimits.TooLarge("Fichier trop volumineux (5 Mo au plus).");
+                long uncompressed;
+                try { uncompressed = ImportLimits.UncompressedSize(ms); }
+                catch (InvalidDataException) { return ImportLimits.TooLarge("Le fichier n'est pas un classeur Excel valide."); }
+                if (uncompressed > ImportLimits.MaxUncompressedBytes)
+                    return ImportLimits.TooLarge("Classeur trop volumineux une fois décompressé (50 Mo au plus).");
+
                 // MiniExcelLibs.ExcelType (v1.45.0) ne connaît que XLSX/CSV/UNKNOWN : pas de valeur XLS
                 // dédiée. .xlsm est un classeur OOXML/zip identique à .xlsx (juste avec des macros), donc
                 // ExcelType.XLSX le lit correctement. Sans ce paramètre explicite, un .xlsm tombait
@@ -216,8 +252,10 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
 
                     ms.Position = 0;
                     var rows = mainSheetName != null
-                        ? MiniExcel.Query(ms, useHeaderRow: true, sheetName: mainSheetName, excelType: ExcelType.XLSX).ToList()
-                        : MiniExcel.Query(ms, useHeaderRow: true, excelType: ExcelType.XLSX).ToList();
+                        ? MiniExcel.Query(ms, useHeaderRow: true, sheetName: mainSheetName, excelType: ExcelType.XLSX).Take(ImportLimits.MaxRows + 1).ToList()
+                        : MiniExcel.Query(ms, useHeaderRow: true, excelType: ExcelType.XLSX).Take(ImportLimits.MaxRows + 1).ToList();
+                    if (rows.Count > ImportLimits.MaxRows)
+                        return ImportLimits.TooLarge($"Trop de lignes : {ImportLimits.MaxRows} au plus par import.");
 
                     foreach (var row in rows)
                     {
@@ -285,7 +323,9 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                 reader.DiscardBufferedData();
 
                 using var csv = new CsvReader(reader, config);
-                records = csv.GetRecords<CsvProductRecord>().ToList();
+                records = csv.GetRecords<CsvProductRecord>().Take(ImportLimits.MaxRows + 1).ToList();
+                if (records.Count > ImportLimits.MaxRows)
+                    return ImportLimits.TooLarge($"Trop de lignes : {ImportLimits.MaxRows} au plus par import.");
             }
         }
         catch (Exception ex)

@@ -49,8 +49,17 @@ public static class DemoUserSeeder
 
             // Idempotent : un redémarrage ne doit ni dupliquer le compte ni ecraser
             // le mot de passe d'un utilisateur qui serait entre-temps devenu reel.
-            if (await userManager.FindByEmailAsync(email) is not null)
+            var existing = await userManager.FindByEmailAsync(email);
+            if (existing is not null)
+            {
+                // Comptes créés avant que le verrouillage soit désactivé pour la démo.
+                if (existing.LockoutEnabled)
+                {
+                    await userManager.SetLockoutEnabledAsync(existing, false);
+                    await userManager.SetLockoutEndDateAsync(existing, null);
+                }
                 continue;
+            }
 
             var user = new ApplicationUser
             {
@@ -68,6 +77,11 @@ public static class DemoUserSeeder
                     email, string.Join(" | ", createResult.Errors.Select(e => e.Description)));
                 continue;
             }
+
+            // Adresses et mot de passe sont publics : avec le verrouillage, cinq essais faux
+            // suffiraient à bloquer la démo pour tous les visiteurs. La limite de débit par IP
+            // (Program.cs) freine la force brute à la place. CreateAsync l'active d'office.
+            await userManager.SetLockoutEnabledAsync(user, false);
 
             var roleResult = await userManager.AddToRoleAsync(user, role);
             if (!roleResult.Succeeded)

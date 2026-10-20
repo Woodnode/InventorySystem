@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using InventorySystem.Api.Middlewares;
+using InventorySystem.Api.Security;
 using InventorySystem.Application;
 using InventorySystem.Infrastructure;
 using InventorySystem.Infrastructure.Auth;
@@ -8,6 +10,7 @@ using InventorySystem.Infrastructure.Persistence;
 using InventorySystem.Infrastructure.SignalR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -96,9 +99,29 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("RequireGestionnaireOrAbove", p => p.RequireRole("Admin", "Gestionnaire"))
     .AddPolicy("RequireEmployeOrAbove", p => p.RequireRole("Admin", "Gestionnaire", "Employe"));
 
+// --- Limitation de débit par IP réelle du visiteur (voir ClientIpForwarding) ---
+// Les comptes de démonstration ne se verrouillent pas (DemoUserSeeder) : c'est cette limite qui
+// freine la force brute sur la connexion, l'inscription et le rafraîchissement.
+builder.Services.AddClientIpForwarding();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Limite lue à la requête (et non à la construction du builder) : les tests la relèvent
+    // par ConfigureAppConfiguration, appliquée après coup avec le minimal hosting.
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        ClientIpForwarding.PartitionKey(context),
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = context.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimiting:AuthPerMinute", 10),
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        }));
+});
+
 var app = builder.Build();
 
 // --- Pipeline HTTP ---
+app.UseForwardedHeaders();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -111,7 +134,11 @@ else
     app.UseHttpsRedirection();
 }
 
+// Après Swagger : sa page a besoin de scripts et de styles que cette CSP interdit.
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
 app.UseCors(CorsPolicy);
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

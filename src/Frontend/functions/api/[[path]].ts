@@ -1,7 +1,7 @@
-import { buildTargetUrl, isWebSocketUpgrade } from '../_proxy'
+import { buildTargetUrl, forwardClientIp, isWebSocketUpgrade } from '../_proxy'
 
 interface Env {
-  /** Adresse HTTPS de l'API sur le serveur Oracle, ex. https://fleet.141-148-52-17.sslip.io */
+  /** Adresse HTTPS de l'API sur le serveur Oracle, ex. https://inventaire.203-0-113-10.sslip.io */
   ORIGIN: string
   /** Secret partagé avec Caddy : sans lui, le serveur refuse la requête (403). */
   PROXY_SECRET: string
@@ -36,6 +36,8 @@ export async function onRequest({ request, env }: Context): Promise<Response> {
   // Prouve au serveur que la requête passe par ce relais. « set » écrase toute valeur qu'un
   // visiteur aurait tenté d'injecter lui-même.
   proxied.headers.set('X-Portfolio-Proxy', env.PROXY_SECRET)
+  // IP réelle du visiteur, pour les limites de débit de l'API.
+  forwardClientIp(proxied.headers, request.headers)
 
   if (isWebSocketUpgrade(request.headers)) {
     // Négociation WebSocket : la réponse 101 et le socket doivent passer sans être modifiés.

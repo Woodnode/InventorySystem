@@ -1,0 +1,12 @@
+# En-têtes de sécurité servis par Cloudflare Pages pour tout le front.
+# L'API (/api/*) envoie les siens depuis SecurityHeadersMiddleware.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

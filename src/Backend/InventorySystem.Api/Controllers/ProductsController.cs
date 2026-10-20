@@ -108,15 +108,20 @@ public sealed class ProductsController : ControllerBase
         return File(file.Content, file.ContentType, file.FileName);
     }
 
-    /// <summary>Importe le catalogue produits depuis un fichier CSV.</summary>
+    /// <summary>Importe le catalogue produits depuis un fichier CSV ou Excel (5 Mo et 5 000 lignes au plus).</summary>
     [HttpPost("import")]
     [Authorize(Policy = "RequireGestionnaireOrAbove")]
+    // Corps refusé par Kestrel au-delà de la limite, avant toute lecture en mémoire.
+    [RequestSizeLimit(ImportLimits.MaxFileBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = ImportLimits.MaxFileBytes + 64 * 1024)]
     [ProducesResponseType(typeof(ImportResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Import(IFormFile file, CancellationToken ct)
     {
         if (file == null || file.Length == 0)
             return BadRequest("Fichier manquant ou vide.");
+        if (file.Length > ImportLimits.MaxFileBytes)
+            return BadRequest("Fichier trop volumineux (5 Mo au plus).");
 
         using var stream = file.OpenReadStream();
         var result = await _mediator.Send(new ImportProductsCommand(stream, file.FileName), ct);

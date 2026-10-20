@@ -5,7 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
     <PackageReference Include="Refit.HttpClientFactory" Version="13.1.0" />
     <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
     <!-- Remplace le bundle_green transitif (lib.e_sqlite3 ≤ 2.1.11 = NU1903 / GHSA-2m69-gcr7-jv3q). -->
