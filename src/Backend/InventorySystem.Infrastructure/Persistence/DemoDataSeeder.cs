@@ -6,8 +6,11 @@ using Microsoft.Extensions.Logging;
 namespace InventorySystem.Infrastructure.Persistence;
 
 /// <summary>
-/// Jeu de données de démonstration d'une maison d'édition québécoise : fournisseurs, entrepôts,
-/// catalogue réparti en collections, stocks par entrepôt et deux mois de mouvements.
+/// Jeu de données de démonstration d'une librairie fictive : fournisseurs, entrepôts, catalogue de
+/// livres connus réparti en collections, stocks par entrepôt et deux mois de mouvements.
+///
+/// Tout est inventé ou public : titres de livres célèbres, entrepôts et adresses génériques.
+/// Aucune donnée d'une entreprise réelle ne doit apparaître sur la vitrine.
 ///
 /// Le premier jeu (douze produits, deux entrepôts, aucun mouvement) laissait le tableau de bord à
 /// moitié vide : pas de flux de stock, pas de variation, une seule collection. Ici chaque bloc du
@@ -20,7 +23,7 @@ namespace InventorySystem.Infrastructure.Persistence;
 public static class DemoDataSeeder
 {
     private const int MovementDays = 60;
-    private const string Company = "Éditions du Fleuve";
+    private const string Company = "Librairie du Fleuve";
 
     public static async Task SeedAsync(AppDbContext context, ILogger logger, CancellationToken cancellationToken = default)
     {
@@ -45,11 +48,11 @@ public static class DemoDataSeeder
 
         var warehouses = new[]
         {
-            Warehouse.Create("Entrepôt principal",     "2500 boulevard Wilfrid-Hamel, Québec"),
-            Warehouse.Create("Entrepôt Montréal",      "1840 rue Notre-Dame Ouest, Montréal"),
-            Warehouse.Create("Entrepôt Sherbrooke",    "455 rue King Ouest, Sherbrooke"),
-            Warehouse.Create("Entrepôt Trois-Rivières","1200 boulevard des Forges, Trois-Rivières"),
-            Warehouse.Create("Entrepôt Lévis",         "75 route du Président-Kennedy, Lévis"),
+            Warehouse.Create("Entrepôt central",            "1200 rue de l'Industrie"),
+            Warehouse.Create("Centre de distribution Nord", "45 avenue des Entrepreneurs"),
+            Warehouse.Create("Entrepôt Est",                "780 boulevard du Commerce"),
+            Warehouse.Create("Entrepôt Sud",                "15 rue des Artisans"),
+            Warehouse.Create("Entrepôt Ouest",              "330 chemin du Port"),
         };
         // Fermé pour travaux : l'indicateur des entrepôts inactifs du tableau de bord a un contenu.
         warehouses[4].Deactivate();
@@ -57,46 +60,46 @@ public static class DemoDataSeeder
         await context.SaveChangesAsync(cancellationToken);
 
         // (SKU, nom, description, seuil, fournisseur, collection, type, année, grammes par exemplaire,
-        //  quantités par entrepôt actif : Québec, Montréal, Sherbrooke, Trois-Rivières)
+        //  quantités par entrepôt actif : central, Nord, Est, Sud)
         var catalogue = new (string Sku, string Name, string Description, int Threshold, int Supplier,
             string Collection, string Type, int Year, decimal Grams, int[] Qty)[]
         {
-            ("LIV-0001", "Atlas du Québec, édition 2026",        "Cartographie complète, couverture rigide", 15, 6, "Atlas et cartes", "Livre",      2026, 1450m, [120, 40, 22, 18]),
-            ("LIV-0002", "Atlas routier du Saint-Laurent",       "Format à spirale, 220 pages",              12, 6, "Atlas et cartes", "Livre",      2025,  820m, [ 64, 30, 12,  9]),
-            ("LIV-0003", "Carte murale des régions",             "Plastifiée, 120 x 90 cm",                   8, 7, "Atlas et cartes", "Affiche",    2025,  380m, [ 36, 14,  6,  4]),
-            ("LIV-0004", "Atlas des parcs nationaux",            "Illustré, 312 pages",                      10, 6, "Atlas et cartes", "Livre",      2024, 1120m, [ 18,  6,  3,  2]),
-            ("LIV-0101", "Guide des oiseaux du Saint-Laurent",   "Illustré, 480 pages",                      10, 6, "Nature",          "Livre",      2024,  960m, [ 64, 18, 15, 11]),
-            ("LIV-0102", "Arbres et arbustes du Québec",         "Guide d'identification, 360 pages",        10, 6, "Nature",          "Livre",      2023,  780m, [ 42, 21,  9,  7]),
-            ("LIV-0103", "Champignons comestibles",              "Format de poche, 210 pages",               12, 6, "Nature",          "Livre",      2025,  340m, [ 27, 10,  4,  3]),
-            ("LIV-0104", "Fleurs sauvages des Laurentides",      "Couverture souple, 256 pages",             10, 6, "Nature",          "Livre",      2026,  510m, [  5,  2,  1,  0]),
-            ("LIV-0105", "Carnet d'observation des étoiles",     "Cartes du ciel saisonnières",               8, 7, "Nature",          "Livre",      2025,  290m, [ 33, 12,  8,  6]),
-            ("LIV-0201", "Recueil de nouvelles, tome I",         "Format poche",                             20, 6, "Romans",          "Livre",      2024,  240m, [ 88, 45, 20, 16]),
-            ("LIV-0202", "Recueil de nouvelles, tome II",        "Format poche",                             20, 6, "Romans",          "Livre",      2025,  240m, [  8,  3,  2,  1]),
-            ("LIV-0203", "Le phare de Kamouraska",               "Roman, 384 pages",                         15, 6, "Romans",          "Livre",      2026,  420m, [140, 72, 31, 25]),
-            ("LIV-0204", "Hiver sur la Côte-Nord",               "Roman, 296 pages",                         15, 6, "Romans",          "Livre",      2025,  360m, [ 56, 28, 14, 10]),
-            ("LIV-0205", "Les saisons de l'île d'Orléans",       "Roman, 412 pages",                         15, 6, "Romans",          "Livre",      2024,  450m, [ 23, 11,  5,  4]),
-            ("LIV-0206", "Chroniques de la rue Saint-Jean",      "Récits, 228 pages",                        12, 6, "Romans",          "Livre",      2023,  300m, [ 49, 17,  9,  6]),
-            ("LIV-0301", "Mon premier imagier",                  "Cartonné, 24 pages",                       25, 7, "Jeunesse",        "Livre",      2026,  310m, [210, 95, 48, 37]),
-            ("LIV-0302", "Le castor qui ne dormait pas",         "Album illustré, 32 pages",                 20, 7, "Jeunesse",        "Livre",      2025,  280m, [ 96, 52, 26, 19]),
-            ("LIV-0303", "Cahier d'activités des vacances",      "Jeux et coloriages, 64 pages",             30, 7, "Jeunesse",        "Cahier",     2026,  190m, [ 12,  6,  3,  2]),
-            ("LIV-0304", "Contes du Grand Nord",                 "Recueil illustré, 96 pages",               15, 7, "Jeunesse",        "Livre",      2024,  420m, [ 61, 30, 13, 11]),
-            ("LIV-0305", "J'apprends à compter",                 "Cartonné, 20 pages",                       25, 7, "Jeunesse",        "Livre",      2025,  260m, [134, 70, 29, 22]),
-            ("PAP-0100", "Rames de papier A4, 80 g",             "Boîte de 5 rames",                         25, 0, "Fournitures",     "Papeterie",  2026, 12500m,[180, 90, 40, 35]),
-            ("PAP-0101", "Cahiers spiralés 200 pages",           "Paquet de 10",                             30, 0, "Fournitures",     "Papeterie",  2026, 2100m, [ 14,  6,  4,  2]),
-            ("PAP-0102", "Enveloppes format lettre",             "Boîte de 500",                             20, 0, "Fournitures",     "Papeterie",  2025, 3400m, [ 95, 25, 18, 12]),
-            ("PAP-0103", "Carnets de notes lignés",              "Paquet de 12",                             24, 0, "Fournitures",     "Papeterie",  2026, 1800m, [ 76, 33, 15, 12]),
-            ("BUR-0200", "Classeurs à anneaux 2 pouces",         "Paquet de 6",                              12, 1, "Fournitures",     "Bureau",     2025, 2600m, [ 48, 16, 10,  8]),
-            ("BUR-0201", "Boîtes d'archivage",                   "Paquet de 12",                             15, 4, "Fournitures",     "Bureau",     2025, 4200m, [  6,  3,  2,  1]),
-            ("BUR-0202", "Stylos à bille bleus",                 "Boîte de 50",                              40, 1, "Fournitures",     "Bureau",     2026,  650m, [240,120, 60, 45]),
-            ("BUR-0203", "Agrafeuses de bureau",                 "Capacité 25 feuilles",                     10, 1, "Fournitures",     "Bureau",     2024,  380m, [ 31, 14,  7,  5]),
-            ("EMB-0400", "Boîtes d'expédition moyennes",         "Paquet de 25, carton double cannelure",    20, 4, "Expédition",      "Emballage",  2026, 5400m, [ 85, 40, 22, 18]),
-            ("EMB-0401", "Rouleaux de ruban adhésif",            "Paquet de 6",                              15, 4, "Expédition",      "Emballage",  2026,  960m, [ 44, 20, 11,  9]),
-            ("EMB-0402", "Enveloppes matelassées",               "Boîte de 100",                             12, 4, "Expédition",      "Emballage",  2025, 2900m, [  5,  3,  1,  1]),
-            ("EMB-0403", "Papier bulle en rouleau",              "50 mètres",                                 6, 4, "Expédition",      "Emballage",  2025, 3800m, [ 19,  8,  4,  3]),
-            ("IMP-0300", "Cartouches d'encre noire",             "Compatibles série 400",                    10, 5, "Impression",      "Consommable",2026,  120m, [ 31, 12,  6,  5]),
-            ("IMP-0301", "Toner couleur",                        "Rendement 2 500 pages",                     8, 5, "Impression",      "Consommable",2026,  860m, [  5,  2,  1,  0]),
-            ("IMP-0302", "Rouleaux d'étiquettes",                "Paquet de 4",                              18, 2, "Impression",      "Consommable",2025,  540m, [ 60, 20, 12,  9]),
-            ("IMP-0303", "Papier photo glacé",                   "Paquet de 100 feuilles",                   10, 2, "Impression",      "Consommable",2025, 1650m, [ 26, 10,  5,  3]),
+            ("LIV-0001", "Le Seigneur des anneaux : La Communauté de l'anneau", "J.R.R. Tolkien, poche",          15, 6, "Fantasy",          "Livre",          2023,  380m, [ 96, 40, 22, 18]),
+            ("LIV-0002", "Le Seigneur des anneaux : Les Deux Tours",            "J.R.R. Tolkien, poche",          15, 6, "Fantasy",          "Livre",          2023,  360m, [ 72, 30, 15, 12]),
+            ("LIV-0003", "Le Seigneur des anneaux : Le Retour du roi",          "J.R.R. Tolkien, poche",          15, 6, "Fantasy",          "Livre",          2023,  400m, [  6,  3,  2,  1]),
+            ("LIV-0004", "Le Hobbit",                                           "J.R.R. Tolkien, illustré",       12, 6, "Fantasy",          "Livre",          2024,  520m, [ 64, 28, 12,  9]),
+            ("LIV-0005", "Le Silmarillion",                                     "J.R.R. Tolkien",                  8, 6, "Fantasy",          "Livre",          2022,  560m, [ 18,  6,  3,  2]),
+            ("LIV-0006", "Le Trône de fer, tome 1",                             "George R.R. Martin",             10, 1, "Fantasy",          "Livre",          2024,  610m, [ 42, 20,  9,  7]),
+            ("LIV-0007", "Le Nom du vent",                                      "Patrick Rothfuss",               10, 1, "Fantasy",          "Livre",          2023,  720m, [  4,  2,  1,  1]),
+            ("LIV-0101", "Harry Potter à l'école des sorciers",                 "J.K. Rowling, grand format",     20, 6, "Jeunesse",         "Livre",          2023,  450m, [140, 72, 31, 25]),
+            ("LIV-0102", "Harry Potter et la Chambre des secrets",              "J.K. Rowling, grand format",     20, 6, "Jeunesse",         "Livre",          2023,  480m, [110, 55, 24, 19]),
+            ("LIV-0103", "Harry Potter et le Prisonnier d'Azkaban",             "J.K. Rowling, grand format",     20, 6, "Jeunesse",         "Livre",          2023,  520m, [ 88, 45, 20, 16]),
+            ("LIV-0104", "Harry Potter et la Coupe de feu",                     "J.K. Rowling, grand format",     20, 6, "Jeunesse",         "Livre",          2023,  780m, [ 10,  4,  3,  1]),
+            ("LIV-0105", "Harry Potter et l'Ordre du phénix",                   "J.K. Rowling, grand format",     15, 6, "Jeunesse",         "Livre",          2023,  880m, [ 56, 28, 14, 10]),
+            ("LIV-0106", "Harry Potter et le Prince de sang-mêlé",              "J.K. Rowling, grand format",     15, 6, "Jeunesse",         "Livre",          2023,  720m, [ 49, 17,  9,  6]),
+            ("LIV-0107", "Harry Potter et les Reliques de la Mort",             "J.K. Rowling, grand format",     15, 6, "Jeunesse",         "Livre",          2023,  790m, [ 61, 30, 13, 11]),
+            ("LIV-0108", "Le Petit Prince",                                     "Antoine de Saint-Exupéry",       25, 7, "Jeunesse",         "Livre",          2021,  210m, [210, 95, 48, 37]),
+            ("LIV-0109", "Charlie et la chocolaterie",                          "Roald Dahl",                     15, 7, "Jeunesse",         "Livre",          2022,  230m, [ 33, 12,  8,  6]),
+            ("LIV-0110", "Le Lion, la Sorcière blanche et l'Armoire magique",   "C.S. Lewis, Le Monde de Narnia", 12, 7, "Jeunesse",         "Livre",          2022,  300m, [ 27, 10,  4,  3]),
+            ("LIV-0111", "Hunger Games",                                        "Suzanne Collins",                12, 1, "Jeunesse",         "Livre",          2024,  340m, [  5,  3,  1,  1]),
+            ("LIV-0201", "Les Misérables",                                      "Victor Hugo, édition intégrale", 10, 2, "Classiques",       "Livre",          2020, 1200m, [ 23, 11,  5,  4]),
+            ("LIV-0202", "Le Comte de Monte-Cristo",                            "Alexandre Dumas, deux tomes",     8, 2, "Classiques",       "Coffret",        2021, 1350m, [ 19,  8,  4,  3]),
+            ("LIV-0203", "Orgueil et Préjugés",                                 "Jane Austen",                    12, 2, "Classiques",       "Livre",          2022,  320m, [ 48, 16, 10,  8]),
+            ("LIV-0204", "Vingt mille lieues sous les mers",                    "Jules Verne, illustré",          10, 3, "Classiques",       "Livre",          2023,  640m, [ 31, 14,  7,  5]),
+            ("LIV-0205", "L'Étranger",                                          "Albert Camus, poche",            15, 2, "Classiques",       "Livre",          2022,  140m, [ 76, 33, 15, 12]),
+            ("LIV-0206", "Don Quichotte",                                       "Miguel de Cervantès",             6, 3, "Classiques",       "Livre",          2021,  980m, [  4,  1,  0,  0]),
+            ("LIV-0301", "Dune",                                                "Frank Herbert",                  12, 1, "Science-fiction",  "Livre",          2024,  690m, [ 85, 40, 22, 18]),
+            ("LIV-0302", "Fondation",                                           "Isaac Asimov",                   10, 1, "Science-fiction",  "Livre",          2023,  330m, [ 44, 20, 11,  9]),
+            ("LIV-0303", "1984",                                                "George Orwell, poche",           20, 2, "Science-fiction",  "Livre",          2022,  220m, [ 95, 25, 18, 12]),
+            ("LIV-0304", "Le Guide du voyageur galactique",                     "Douglas Adams",                  10, 1, "Science-fiction",  "Livre",          2023,  260m, [ 26, 10,  5,  3]),
+            ("LIV-0305", "Fahrenheit 451",                                      "Ray Bradbury",                   12, 2, "Science-fiction",  "Livre",          2022,  180m, [ 60, 20, 12,  9]),
+            ("LIV-0401", "Le Crime de l'Orient-Express",                        "Agatha Christie",                12, 1, "Policier",         "Livre",          2023,  250m, [ 36, 14,  6,  4]),
+            ("LIV-0402", "Ils étaient dix",                                     "Agatha Christie",                12, 1, "Policier",         "Livre",          2023,  240m, [ 48, 16, 10,  8]),
+            ("LIV-0403", "Le Chien des Baskerville",                            "Arthur Conan Doyle",             10, 3, "Policier",         "Livre",          2022,  230m, [ 19,  8,  4,  3]),
+            ("LIV-0404", "Millénium, tome 1",                                   "Stieg Larsson",                  10, 1, "Policier",         "Livre",          2023,  760m, [  5,  2,  1,  1]),
+            ("LIV-0501", "Astérix le Gaulois",                                  "Goscinny et Uderzo",             15, 7, "Bande dessinée",   "Bande dessinée", 2023,  410m, [240,120, 60, 45]),
+            ("LIV-0502", "Tintin au Tibet",                                     "Hergé",                          12, 7, "Bande dessinée",   "Bande dessinée", 2022,  420m, [ 31, 12,  6,  5]),
+            ("LIV-0503", "Les Schtroumpfs noirs",                               "Peyo",                           10, 7, "Bande dessinée",   "Bande dessinée", 2022,  380m, [ 26, 10,  5,  3]),
         };
 
         var activeWarehouses = warehouses[..4];
@@ -155,16 +158,17 @@ public static class DemoDataSeeder
 
     /// <summary>
     /// Deux mois de réceptions, d'expéditions et de transferts. Le stock se reconstitue sur les deux
-    /// périodes, plus vite ce mois-ci (réimpressions de la rentrée) : la variation affichée est une
+    /// périodes, plus vite ce mois-ci (réassort de la rentrée) : la variation affichée est une
     /// hausse lisible, pas le saut d'un solde négatif à un solde positif.
     /// </summary>
     private static int SeedMovements(AppDbContext context, List<Product> products, Warehouse[] warehouses, Random random, DateTime today)
     {
-        string[] inReasons = ["Réception fournisseur", "Retour de librairie", "Réimpression", "Réception commande ouverte"];
-        string[] outReasons = ["Commande librairie", "Expédition en ligne", "Salon du livre", "Commande scolaire", "Envoi de presse"];
+        string[] inReasons = ["Réception fournisseur", "Retour client", "Réassort éditeur", "Réception commande ouverte"];
+        string[] outReasons = ["Vente en magasin", "Commande en ligne", "Salon du livre", "Commande scolaire", "Commande de bibliothèque"];
         string[] transferReasons = ["Réassort régional", "Équilibrage des stocks", "Préparation d'un salon"];
 
         var count = 0;
+        var maintenant = DateTime.UtcNow;
         for (var day = MovementDays; day >= 0; day--)
         {
             var date = today.AddDays(-day);
@@ -202,6 +206,10 @@ public static class DemoDataSeeder
                 context.StockMovements.Add(movement);
                 // La date d'un mouvement est sa date de création : on la recule pour étaler l'historique.
                 var at = date.AddHours(random.Next(8, 18)).AddMinutes(random.Next(0, 60));
+                // Le jour même, une heure tirée au hasard pouvait tomber après l'instant présent :
+                // le tableau de bord affichait alors un mouvement « dans 17 minutes ».
+                if (at > maintenant)
+                    at = maintenant.AddMinutes(-random.Next(5, 90));
                 context.Entry(movement).Property(nameof(StockMovement.CreatedAtUtc)).CurrentValue = at;
                 context.Entry(movement).Property(nameof(StockMovement.UpdatedAtUtc)).CurrentValue = at;
                 count++;
