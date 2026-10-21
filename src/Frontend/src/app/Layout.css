@@ -55,6 +55,14 @@
   gap: 0.375rem;
 }
 
+/* En xl, la barre affiche aussi le nom d'affichage : il lui manquait une dizaine de
+   pixels, que l'on reprend sur la marge latérale des cinq liens. */
+@media (min-width: 1280px) {
+  .nav-link-custom {
+    padding-inline: 0.625rem;
+  }
+}
+
 .role-label {
   color: #0f6b6f;
 }

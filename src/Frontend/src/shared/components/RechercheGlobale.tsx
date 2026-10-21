@@ -65,7 +65,7 @@ export function RechercheGlobale() {
     <>
       <button
         type="button"
-        className="btn-secondary h-11 w-11 px-0"
+        className="btn-secondary h-11 w-11 shrink-0 px-0"
         aria-label="Rechercher un produit"
         aria-keyshortcuts="Control+K"
         onClick={() => setOuvert(true)}

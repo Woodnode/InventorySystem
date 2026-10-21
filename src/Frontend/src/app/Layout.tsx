@@ -6,6 +6,7 @@ import {
   List,
   Moon,
   Package,
+  SignOut,
   Sun,
   Truck,
   Warehouse,
@@ -114,7 +115,7 @@ export function Layout() {
     /* max-w + truncate : sans borne, un nom d affichage long repousse la navigation
        au-dela de la largeur disponible et ramene le debordement horizontal. */
     <span className="flex min-w-0 items-baseline gap-1 text-slate-700">
-      <span className="max-w-[10rem] truncate font-medium" title={auth.displayName}>
+      <span className="max-w-[12rem] truncate font-medium" title={auth.displayName}>
         {auth.displayName}
       </span>{' '}
       {/* #0f6b6f : variante assombrie du sarcelle de marque, 6,4:1 sur blanc
@@ -136,7 +137,8 @@ export function Layout() {
           Bascule à `lg` et non `md` : la navigation complète réclame 943px de large.
           Entre 768 et 943px, elle débordait horizontalement et passait sur deux lignes.
         */}
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        {/* 7xl à partir de xl : en 6xl, le nom d'affichage n'avait que 51px sur 175. */}
+        <div className="mx-auto flex max-w-6xl xl:max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <span className="nav-brand shrink-0">Inventaire</span>
 
           <nav aria-label="Navigation principale" className="hidden lg:flex items-center gap-1">
@@ -153,10 +155,22 @@ export function Layout() {
             >
               {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
             </button>
+            {/*
+              Entre 1024 et 1279px, la navigation prend 659px et il ne restait que 190px à
+              droite : le nom tombait à « Comp… », la recherche était écrasée et Déconnexion
+              débordait. L'identité ne s'affiche donc qu'à partir de xl, et Déconnexion se
+              réduit à son icône en dessous ; le nom reste lisible dans le menu mobile.
+            */}
             <div className="hidden min-w-0 items-center gap-2 lg:flex">
-              {identite}
-              <button type="button" className="btn-secondary shrink-0" onClick={handleLogout}>
-                Déconnexion
+              <span className="hidden min-w-0 xl:flex">{identite}</span>
+              <button
+                type="button"
+                className="btn-secondary shrink-0 px-3 xl:px-4"
+                aria-label="Déconnexion"
+                onClick={handleLogout}
+              >
+                <SignOut size={18} aria-hidden="true" className="xl:hidden" />
+                <span className="hidden xl:inline">Déconnexion</span>
               </button>
             </div>
             <button
