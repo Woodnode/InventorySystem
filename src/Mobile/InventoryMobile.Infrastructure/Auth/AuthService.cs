@@ -38,8 +38,26 @@ public sealed class AuthService : IAuthService
         return session;
     }
 
+    /// <summary>
+    /// Révoque la session côté serveur (au mieux), puis l'efface de l'appareil. Sans l'appel, le
+    /// refresh token restait valable 7 jours : une copie fuitée survivait à la déconnexion.
+    /// </summary>
     public async Task LogoutAsync()
     {
+        var session = CurrentSession ?? await _tokenStore.LoadAsync();
+        if (session is not null)
+        {
+            try
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await _api.LogoutAsync(new RefreshTokenRequest(session.RefreshToken), timeout.Token);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or Refit.ApiException or OperationCanceledException)
+            {
+                // Hors ligne : la session locale est effacée quand même.
+            }
+        }
+
         await _tokenStore.ClearAsync();
         CurrentSession = null;
     }

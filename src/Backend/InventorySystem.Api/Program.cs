@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using InventorySystem.Api.Demo;
 using InventorySystem.Api.Middlewares;
 using InventorySystem.Api.Security;
 using InventorySystem.Application;
@@ -106,6 +107,14 @@ builder.Services.AddClientIpForwarding();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Trace des refus : une rafale de 429 sur l'authentification signale une attaque en cours.
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>().LogWarning(
+            "Limite de débit atteinte sur {Path} depuis {ClientIp}",
+            context.HttpContext.Request.Path, ClientIpForwarding.PartitionKey(context.HttpContext));
+        return ValueTask.CompletedTask;
+    };
     // Limite lue à la requête (et non à la construction du builder) : les tests la relèvent
     // par ConfigureAppConfiguration, appliquée après coup avec le minimal hosting.
     options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
@@ -117,6 +126,10 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
         }));
 });
+
+// Site vitrine : comptes de démonstration publics, données remises à zéro chaque nuit.
+if (builder.Configuration.GetValue<bool>("Seed:Demo"))
+    builder.Services.AddHostedService<DemoResetService>();
 
 var app = builder.Build();
 

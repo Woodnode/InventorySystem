@@ -1,5 +1,6 @@
 using System.Net;
 using FluentValidation;
+using InventorySystem.Api.Security;
 using InventorySystem.Application.Common.Exceptions;
 using InventorySystem.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
@@ -35,6 +36,10 @@ public sealed class ExceptionHandlingMiddleware
         }
         catch (AuthenticationException ex)
         {
+            // Trace de sécurité : échecs de connexion, jetons refusés, réutilisation d'un refresh
+            // token (révocation de la session). Le message ne contient ni courriel ni jeton.
+            _logger.LogWarning("Authentification refusée sur {Path} depuis {ClientIp} : {Reason}",
+                context.Request.Path, ClientIpForwarding.PartitionKey(context), ex.Message);
             await WriteProblemAsync(context, HttpStatusCode.Unauthorized, "Authentification échouée", ex.Message);
         }
         catch (IdentityOperationException ex)

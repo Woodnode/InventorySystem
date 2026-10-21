@@ -17,6 +17,10 @@ public interface IInventoryApi
     [Post("/auth/refresh")]
     Task<AuthResultResponse> RefreshAsync([Body] RefreshTokenRequest request, CancellationToken ct = default);
 
+    /// <summary>Révoque la session côté serveur (famille du refresh token). Anonyme, toujours 204.</summary>
+    [Post("/auth/logout")]
+    Task LogoutAsync([Body] RefreshTokenRequest request, CancellationToken ct = default);
+
     /// <summary>
     /// Paginé côté backend (le catalogue grandit sans borne) — voir <see cref="PagedResponse{T}"/>.
     /// <paramref name="search"/> porte sur le SKU et le nom, comme la recherche du web ; un

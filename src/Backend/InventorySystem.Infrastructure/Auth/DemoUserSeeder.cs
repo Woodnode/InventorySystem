@@ -27,6 +27,9 @@ public static class DemoUserSeeder
         ("admin@inventaire.invalid",        "Admin",        "Alex Demo (Admin)"),
     };
 
+    /// <summary>Adresses des comptes de démonstration, conservés par la remise à zéro.</summary>
+    public static IReadOnlyList<string> Emails { get; } = Comptes.Select(c => c.Email).ToArray();
+
     public static async Task SeedAsync(
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,

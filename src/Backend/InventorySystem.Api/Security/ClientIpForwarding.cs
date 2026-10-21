@@ -29,6 +29,24 @@ public static class ClientIpForwarding
         });
 
     /// <summary>Clé de partition des limiteurs : l'IP du client, ou une clé commune si elle est inconnue.</summary>
-    public static string PartitionKey(HttpContext context) =>
-        context.Connection.RemoteIpAddress?.ToString() ?? "inconnue";
+    public static string PartitionKey(HttpContext context) => PartitionKey(context.Connection.RemoteIpAddress);
+
+    /// <summary>
+    /// Une adresse IPv4 compte seule. En IPv6, un abonné reçoit au moins un /64 (2^64 adresses) :
+    /// limiter par adresse complète lui laisserait une fenêtre neuve à chaque requête, donc la
+    /// limite porte sur le préfixe /64.
+    /// </summary>
+    public static string PartitionKey(System.Net.IPAddress? address)
+    {
+        if (address is null)
+            return "inconnue";
+        if (address.IsIPv4MappedToIPv6)
+            address = address.MapToIPv4();
+        if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6)
+            return address.ToString();
+
+        var bytes = address.GetAddressBytes();
+        Array.Clear(bytes, 8, 8);
+        return $"{new System.Net.IPAddress(bytes)}/64";
+    }
 }
