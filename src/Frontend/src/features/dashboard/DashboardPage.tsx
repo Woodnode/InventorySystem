@@ -402,12 +402,16 @@ export function DashboardPage() {
       </div>
 
       {/*
-        Grille bento : la liste de stock bas occupe deux colonnes sur deux rangées,
-        les indicateurs se logent autour. Chaque cellule porte du contenu — aucune
-        case vide à combler.
+        Grille bento : la liste de stock bas occupe la moitié gauche, les trois
+        indicateurs la moitié droite.
+
+        Les indicateurs vivent dans leur propre grille, étirée à la hauteur de la liste
+        (self-stretch + auto-rows-fr). Posés directement dans la grille principale avec
+        un row-span, ils se calaient en haut de leur rangée : la liste, plus haute que
+        les deux rangées réunies, laissait un grand vide sous « Entrepôts actifs ».
       */}
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <section className="dashboard-card sm:col-span-2 lg:row-span-2">
+        <section className="dashboard-card sm:col-span-2">
           <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-field bg-rose-100">
@@ -465,32 +469,34 @@ export function DashboardPage() {
           )}
         </section>
 
-        <Kpi
-          label="Produits référencés"
-          valeur={stats?.totalProducts}
-          icone={Package}
-          ton="marque"
-          enErreur={erreurStats}
-          to="/products"
-        />
-        <Kpi
-          label="Entrepôts actifs"
-          valeur={stats?.activeWarehouses}
-          legende={inactifs > 0 ? `${inactifs} inactif${inactifs > 1 ? 's' : ''}` : undefined}
-          icone={Buildings}
-          ton="marque"
-          enErreur={erreurStats}
-          to="/warehouses"
-        />
-        <Kpi
-          label="Poids total du stock"
-          texte={stats ? formatPoids(stats.totalWeightGrams) : undefined}
-          icone={Scales}
-          ton="marque"
-          enErreur={erreurStats}
-          to="/products"
-          className="sm:col-span-2"
-        />
+        <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2 lg:self-stretch">
+          <Kpi
+            label="Produits référencés"
+            valeur={stats?.totalProducts}
+            icone={Package}
+            ton="marque"
+            enErreur={erreurStats}
+            to="/products"
+          />
+          <Kpi
+            label="Entrepôts actifs"
+            valeur={stats?.activeWarehouses}
+            legende={inactifs > 0 ? `${inactifs} inactif${inactifs > 1 ? 's' : ''}` : undefined}
+            icone={Buildings}
+            ton="marque"
+            enErreur={erreurStats}
+            to="/warehouses"
+          />
+          <Kpi
+            label="Poids total du stock"
+            texte={stats ? formatPoids(stats.totalWeightGrams) : undefined}
+            icone={Scales}
+            ton="marque"
+            enErreur={erreurStats}
+            to="/products"
+            className="sm:col-span-2"
+          />
+        </div>
 
         <FluxDeStock stats={stats} />
         <ActiviteRecente mouvements={recents} isLoading={chargeRecents} isError={erreurRecents} />
