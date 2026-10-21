@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { CaretDown, CaretUp, CaretUpDown } from '@phosphor-icons/react';
+import { Badge } from '../../shared/components/Badge';
 import type { Product } from './types';
 import type { ProductSortBy } from './useProducts';
 
@@ -115,16 +116,10 @@ export function ProductTable({
               <td className="px-3 py-2 text-slate-700">{p.collection || '—'}</td>
               <td className="px-3 py-2 text-slate-700">{p.primaryLocation || '—'}</td>
               <td className="px-3 py-2">
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${
-                    p.isLowOnStock
-                      ? 'bg-rose-100 text-rose-800'
-                      : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
+                <Badge ton={p.isLowOnStock ? 'alerte' : 'neutre'}>
                   {p.quantity.toLocaleString('fr-CA')}
                   {p.isLowOnStock && <span>Stock bas</span>}
-                </span>
+                </Badge>
               </td>
             </tr>
           ))}

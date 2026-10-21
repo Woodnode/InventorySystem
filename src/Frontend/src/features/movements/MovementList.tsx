@@ -2,6 +2,7 @@ import { DataList } from '../../shared/components/DataList';
 import { formatMovementType, warehouseNameLookup } from '../../shared/utils/movementLabels';
 import type { Warehouse } from '../warehouses/types';
 import type { StockMovement } from './types';
+import { BadgeMouvement } from './BadgeMouvement';
 
 /**
  * Historique des mouvements — identique sur ProductDetailPage et MovementsPage (seule la
@@ -37,7 +38,7 @@ export function MovementList({
             {m.reason && <span className="ml-2 text-slate-600">({m.reason})</span>}
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <span className="font-mono font-medium text-slate-800">{m.quantity}</span>
+            <BadgeMouvement type={m.type} quantite={m.quantity} />
             <time dateTime={m.createdAtUtc} className="text-xs text-slate-600">
               {new Date(m.createdAtUtc).toLocaleString('fr-CA')}
             </time>

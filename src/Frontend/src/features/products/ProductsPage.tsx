@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Barcode, UploadSimple } from '@phosphor-icons/react';
+import { Barcode, MagnifyingGlass, Package, UploadSimple } from '@phosphor-icons/react';
 import { RequireRole } from '../../routes/RequireRole';
+import { Badge } from '../../shared/components/Badge';
 import { CreatePanel } from '../../shared/components/CreatePanel';
 import { DataList } from '../../shared/components/DataList';
 import { ExportButtons } from '../../shared/components/ExportButtons';
@@ -77,6 +78,17 @@ export function ProductsPage() {
 
   const hasActiveFilters =
     search !== '' || minQuantity !== '' || maxQuantity !== '' || lowStockOnly || collection !== '';
+
+  /* `?scanner=1` : le bouton Scanner du tableau de bord ouvre directement la
+     camera ici. Le parametre est retire aussitot, sinon un retour arriere ou un
+     rechargement rouvrirait le scanner. */
+  useEffect(() => {
+    if (parametres.get('scanner') !== '1') return;
+    setScanOuvert(true);
+    const suivant = new URLSearchParams(parametres);
+    suivant.delete('scanner');
+    setParametres(suivant, { replace: true });
+  }, [parametres, setParametres]);
 
   useEffect(() => {
     const present = parametres.get('stockBas') === '1';
@@ -294,7 +306,7 @@ export function ProductsPage() {
               id="product-search"
               type="search"
               className="input"
-              placeholder="Ex. 00181 ou Défi avant les fêtes"
+              placeholder="Ex. LIV-0101 ou Le Hobbit"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
@@ -407,7 +419,13 @@ export function ProductsPage() {
         isError={isError}
         error={error}
         isEmpty={data?.items.length === 0}
-        emptyMessage={hasActiveFilters ? 'Aucun produit ne correspond à ces critères.' : "Aucun produit pour l'instant."}
+        emptyTitle={hasActiveFilters ? 'Aucun résultat' : 'Aucun produit'}
+        emptyIcon={hasActiveFilters ? MagnifyingGlass : Package}
+        emptyMessage={
+          hasActiveFilters
+            ? 'Aucun produit ne correspond à ces critères. Élargis la recherche ou retire un filtre.'
+            : 'Importe un fichier CSV ou Excel, ou crée un premier produit.'
+        }
         emptyAction={
           hasActiveFilters ? (
             <button type="button" className="btn-secondary" onClick={resetFilters}>
@@ -460,13 +478,9 @@ export function ProductsPage() {
                     <p className="mt-1 text-xs text-slate-600">{p.primaryLocation}</p>
                   )}
                 </div>
-                <span className={`inline-flex shrink-0 items-center gap-2 font-mono text-sm ${p.isLowOnStock ? 'font-semibold text-rose-700' : 'text-slate-600'}`}>
-                  {p.quantity} restants
-                  {p.isLowOnStock && (
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
-                      Stock bas
-                    </span>
-                  )}
+                <span className={`inline-flex shrink-0 items-center gap-2 text-sm tabular-nums ${p.isLowOnStock ? 'font-semibold text-rose-700' : 'text-slate-600'}`}>
+                  {p.quantity.toLocaleString('fr-CA')} restants
+                  {p.isLowOnStock && <Badge ton="alerte">Stock bas</Badge>}
                 </span>
               </>
             )}

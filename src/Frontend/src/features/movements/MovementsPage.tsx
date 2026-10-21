@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowsLeftRight } from '@phosphor-icons/react';
 import { ExportButtons } from '../../shared/components/ExportButtons';
 import { PaginationControls } from '../../shared/components/PaginationControls';
 import { useAllProductsForPicker } from '../products/useProducts';
@@ -10,6 +11,7 @@ import { formatMovementType } from '../../shared/utils/movementLabels';
 import { QueryState } from '../../shared/components/QueryState';
 import { MovementForm } from './MovementForm';
 import { MovementList } from './MovementList';
+import { BadgeMouvement } from './BadgeMouvement';
 
 /**
  * Point d'entrée général des mouvements : sélection d'un produit, puis formulaire
@@ -121,7 +123,9 @@ export function MovementsPage() {
             isLoading={chargeRecents}
             isError={erreurRecents}
             isEmpty={recents?.length === 0}
-            emptyMessage="Aucun mouvement enregistré pour l'instant."
+            emptyTitle="Aucun mouvement"
+            emptyIcon={ArrowsLeftRight}
+            emptyMessage="Choisis un produit ci-dessus pour enregistrer la première entrée."
             className="mt-3"
             skeletonRows={4}
           />
@@ -148,19 +152,7 @@ export function MovementsPage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    {/* Le signe dit le sens du mouvement sans qu'il faille lire le libelle. */}
-                    <span
-                      className={`rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${
-                        m.type === 'In'
-                          ? 'bg-brand-900/10 text-brand-900'
-                          : m.type === 'Out'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {m.type === 'In' ? '+' : m.type === 'Out' ? '−' : ''}
-                      {m.quantity.toLocaleString('fr-CA')}
-                    </span>
+                    <BadgeMouvement type={m.type} quantite={m.quantity} />
                     <time dateTime={m.createdAtUtc} className="text-xs text-slate-600">
                       {new Date(m.createdAtUtc).toLocaleString('fr-CA')}
                     </time>
@@ -188,7 +180,9 @@ export function MovementsPage() {
               isError={isErrorMovements}
               error={errorMovements}
               isEmpty={movementsPageData?.items.length === 0}
-              emptyMessage="Aucun mouvement pour l'instant."
+              emptyTitle="Aucun mouvement"
+              emptyIcon={ArrowsLeftRight}
+              emptyMessage="Le formulaire ci-dessus enregistre la première entrée, sortie ou le premier transfert."
               className="mt-3"
             />
             {movementsPageData && movementsPageData.items.length > 0 && (

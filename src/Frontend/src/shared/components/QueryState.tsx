@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Tray, type Icon } from '@phosphor-icons/react';
 import { getErrorMessage } from '../api-client/errorMessage';
 
 /** Bandes grises reprenant la forme d'une ligne de liste, le temps du chargement. */
@@ -31,7 +32,9 @@ export function QueryState({
   isError,
   error,
   isEmpty,
+  emptyTitle,
   emptyMessage,
+  emptyIcon,
   emptyAction,
   skeletonRows = 4,
   className = 'mt-6',
@@ -40,7 +43,12 @@ export function QueryState({
   isError: boolean;
   error?: unknown;
   isEmpty?: boolean;
+  /** Titre court de l'état vide, ex. « Aucun produit ». */
+  emptyTitle?: string;
+  /** Phrase d'aide : pourquoi c'est vide et comment le remplir. */
   emptyMessage?: string;
+  /** Icône Phosphor de l'état vide ; un bac vide par défaut. */
+  emptyIcon?: Icon;
   /** Bouton ou lien proposé quand la liste est vide (« comment la remplir »). */
   emptyAction?: ReactNode;
   skeletonRows?: number;
@@ -73,14 +81,21 @@ export function QueryState({
   }
 
   if (isEmpty && emptyMessage) {
+    const Icone = emptyIcon ?? Tray;
     return (
       <div
         role="status"
         aria-live="polite"
         className={`${className} surface flex flex-col items-center gap-3 px-4 py-10 text-center`}
       >
+        {/* Une phrase grise seule se lisait comme un oubli de mise en page : l'icône
+            et le titre disent qu'il s'agit d'un état normal, la phrase dit quoi faire. */}
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+          <Icone size={24} weight="duotone" className="text-slate-600" aria-hidden="true" />
+        </span>
+        {emptyTitle && <p className="font-semibold text-slate-800">{emptyTitle}</p>}
         {/* text-slate-600 : 7,0:1. L'ancien text-slate-400 plafonnait à 2,6:1. */}
-        <p className="text-sm text-slate-600">{emptyMessage}</p>
+        <p className="max-w-sm text-sm text-slate-600">{emptyMessage}</p>
         {emptyAction}
       </div>
     );

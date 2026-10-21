@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { RequireRole } from '../../routes/RequireRole';
+import { MagnifyingGlass, Warehouse as WarehouseIcone } from '@phosphor-icons/react';
+import { Badge } from '../../shared/components/Badge';
 import { CreatePanel } from '../../shared/components/CreatePanel';
 import { DataList } from '../../shared/components/DataList';
 import { Field } from '../../shared/components/Field';
@@ -86,9 +88,7 @@ function WarehouseRow({ warehouse }: { warehouse: Warehouse }) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {!warehouse.isActive && (
-          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-            Inactif
-          </span>
+          <Badge ton="inactif">Inactif</Badge>
         )}
         <RequireRole role="Gestionnaire">
           <button
@@ -229,10 +229,12 @@ export function WarehousesPage() {
         isError={isError}
         error={error}
         isEmpty={filtres?.length === 0}
+        emptyTitle={recherche ? 'Aucun résultat' : 'Aucun entrepôt'}
+        emptyIcon={recherche ? MagnifyingGlass : WarehouseIcone}
         emptyMessage={
           recherche
-            ? `Aucun entrepôt ne correspond à « ${recherche} ».`
-            : "Aucun entrepôt pour l'instant."
+            ? `Aucun entrepôt ne correspond à « ${recherche} ». Vérifie l'orthographe ou cherche par adresse.`
+            : 'Un entrepôt est requis avant de créer le premier produit.'
         }
         emptyAction={
           recherche ? (

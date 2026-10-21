@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { RequireRole } from '../../routes/RequireRole';
+import { Truck } from '@phosphor-icons/react';
+import { Badge } from '../../shared/components/Badge';
 import { CreatePanel } from '../../shared/components/CreatePanel';
 import { DataList } from '../../shared/components/DataList';
 import { Field } from '../../shared/components/Field';
@@ -93,9 +95,7 @@ function SupplierRow({ supplier }: { supplier: Supplier }) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {!supplier.isActive && (
-          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">
-            Inactif
-          </span>
+          <Badge ton="inactif">Inactif</Badge>
         )}
         <RequireRole role="Gestionnaire">
           <button
@@ -184,7 +184,9 @@ export function SuppliersPage() {
         isError={isError}
         error={error}
         isEmpty={suppliers?.length === 0}
-        emptyMessage="Aucun fournisseur pour l'instant."
+        emptyTitle="Aucun fournisseur"
+        emptyIcon={Truck}
+        emptyMessage="Un fournisseur se rattache à un produit dès sa création."
         /* Un etat vide qui ne dit pas comment le remplir laisse l'ecran sans issue. */
         emptyAction={
           <RequireRole role="Gestionnaire">

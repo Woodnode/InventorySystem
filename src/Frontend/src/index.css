@@ -87,6 +87,36 @@
     @apply rounded-card border border-slate-200 bg-white;
   }
 
+  /* Pastilles (composant Badge). Contrastes texte/fond au-dessus de 7:1 en clair. */
+  .badge {
+    @apply inline-flex w-fit shrink-0 items-center gap-1 rounded-full px-2 py-0.5
+      text-xs font-semibold tabular-nums whitespace-nowrap;
+  }
+
+  .badge-md {
+    @apply px-3 py-1 text-sm font-medium;
+  }
+
+  .badge-neutre {
+    @apply bg-slate-100 text-slate-700;
+  }
+
+  .badge-marque {
+    @apply bg-brand-900/10 text-brand-900;
+  }
+
+  .badge-alerte {
+    @apply bg-rose-100 text-rose-800;
+  }
+
+  .badge-avertissement {
+    @apply bg-amber-100 text-amber-900;
+  }
+
+  .badge-inactif {
+    @apply bg-slate-200 font-medium text-slate-700;
+  }
+
   /* Bannière d'erreur de mutation, identique sur les cinq formulaires. */
   .form-error {
     @apply rounded-field bg-rose-50 px-3 py-2 text-sm text-rose-700;
@@ -218,6 +248,34 @@
 
 .dark .btn-secondary:hover:not(:disabled) {
   background: #334155;
+}
+
+/* Le marine de marque tombait sous 2:1 sur l'ardoise. */
+.dark .lien-marque {
+  color: #99d98c;
+}
+
+/* Les fonds pâles des pastilles éblouissaient sur l'ardoise : teintes profondes,
+   texte clair, contrastes au-dessus de 7:1. */
+.dark .badge-neutre,
+.dark .badge-inactif {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.dark .badge-marque {
+  background: rgba(153, 217, 140, 0.14);
+  color: #b7e4ad;
+}
+
+.dark .badge-alerte {
+  background: rgba(244, 63, 94, 0.18);
+  color: #fecdd3;
+}
+
+.dark .badge-avertissement {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
 }
 
 .dark .nav-brand,

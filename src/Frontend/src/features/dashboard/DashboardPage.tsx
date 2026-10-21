@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ArrowsLeftRight,
   ArrowUpRight,
+  Barcode,
   Buildings,
+  CheckCircle,
   ChartLine,
   Package,
   Scales,
@@ -11,10 +14,14 @@ import {
   WarningCircle,
   type Icon,
 } from '@phosphor-icons/react';
+import { Badge } from '../../shared/components/Badge';
 import { QueryState } from '../../shared/components/QueryState';
 import { Sparkline } from '../../shared/components/Sparkline';
+import { estRelatif, formatDepuis } from '../../shared/utils/formatDepuis';
 import { formatPoids } from '../../shared/utils/formatPoids';
+import { useRecentMovements } from '../movements/useRecentMovements';
 import { useLowStockProducts } from '../products/useProducts';
+import { ActiviteRecente } from './ActiviteRecente';
 import { useDashboardStats } from './useDashboardStats';
 import { Variation } from './Variation';
 import type { DashboardStats } from './types';
@@ -120,7 +127,7 @@ function BarreStock({ quantite, seuil }: { quantite: number; seuil: number }) {
           style={{ width: `${Math.max(pourcent, 3)}%` }}
         />
       </div>
-      <span className="shrink-0 font-mono text-sm">
+      <span className="shrink-0 text-sm tabular-nums">
         <span className="font-semibold text-slate-900">{quantite}</span>
         <span className="text-slate-600"> / {seuil}</span>
       </span>
@@ -164,7 +171,7 @@ function RepartitionEntrepots({ stats }: { stats: DashboardStats | undefined }) 
                 <span className="truncate font-medium text-slate-800" title={l.name}>
                   {l.name}
                 </span>
-                <span className="shrink-0 font-mono text-slate-700">
+                <span className="shrink-0 tabular-nums text-slate-700">
                   <span className="font-semibold text-slate-900">
                     {l.totalQuantity.toLocaleString('fr-CA')}
                   </span>
@@ -228,7 +235,7 @@ function RepartitionCollections({ stats }: { stats: DashboardStats | undefined }
                   style={{ width: `${Math.max((total / max) * 100, 4)}%` }}
                 />
               </div>
-              <span className="w-8 shrink-0 text-right font-mono font-medium text-slate-800">
+              <span className="w-8 shrink-0 text-right font-medium tabular-nums text-slate-800">
                 {total}
               </span>
             </li>
@@ -246,8 +253,12 @@ function FluxDeStock({ stats }: { stats: DashboardStats | undefined }) {
   const sorties = stats?.dailyFlow.reduce((s, f) => s + f.out, 0) ?? 0;
 
   return (
-    <section className="dashboard-card sm:col-span-2 lg:col-span-4">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+    /* Deux colonnes et non quatre : l'activité récente prend la moitié restante,
+       sans quoi la grille laissait une case vide sur la rangée suivante. */
+    <section className="dashboard-card flex flex-col sm:col-span-2 sm:self-stretch">
+      {/* Titre et variation empilés : sur une demi-largeur, côte à côte, la pastille
+          passait sur deux lignes. */}
+      <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-field bg-brand-900/10">
             <ChartLine size={22} weight="duotone" className="text-brand-900" aria-hidden="true" />
@@ -263,11 +274,11 @@ function FluxDeStock({ stats }: { stats: DashboardStats | undefined }) {
       </div>
 
       {!stats ? (
-        <div className="mt-5 h-16 animate-pulse rounded bg-slate-100" aria-hidden="true" />
+        <div className="mt-5 h-24 animate-pulse rounded bg-slate-100" aria-hidden="true" />
       ) : (
         <>
           <Sparkline
-            className="mt-5 h-16 w-full text-slate-500"
+            className="mt-5 h-24 w-full flex-1 text-slate-500"
             valeurs={valeurs}
             hauteur={40}
             resume={`Solde quotidien sur ${stats.periodDays} jours : ${entrees} unités entrées, ${sorties} sorties, solde net de ${stats.netCurrentPeriod}.`}
@@ -275,15 +286,15 @@ function FluxDeStock({ stats }: { stats: DashboardStats | undefined }) {
           <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
             <div className="flex items-baseline gap-2">
               <dt className="text-slate-600">Entrées</dt>
-              <dd className="font-mono font-semibold text-slate-900">{entrees.toLocaleString('fr-CA')}</dd>
+              <dd className="font-semibold tabular-nums text-slate-900">{entrees.toLocaleString('fr-CA')}</dd>
             </div>
             <div className="flex items-baseline gap-2">
               <dt className="text-slate-600">Sorties</dt>
-              <dd className="font-mono font-semibold text-slate-900">{sorties.toLocaleString('fr-CA')}</dd>
+              <dd className="font-semibold tabular-nums text-slate-900">{sorties.toLocaleString('fr-CA')}</dd>
             </div>
             <div className="flex items-baseline gap-2">
               <dt className="text-slate-600">Solde</dt>
-              <dd className="font-mono font-semibold text-slate-900">
+              <dd className="font-semibold tabular-nums text-slate-900">
                 {stats.netCurrentPeriod > 0 && '+'}
                 {stats.netCurrentPeriod.toLocaleString('fr-CA')}
               </dd>
@@ -306,10 +317,33 @@ function FluxDeStock({ stats }: { stats: DashboardStats | undefined }) {
 /** Nombre de produits critiques repris sur l'accueil. */
 const APERCU_STOCK_BAS = 6;
 
+/** Nombre de mouvements repris dans « Activité récente ». */
+const APERCU_ACTIVITE = 5;
+
+/** « il y a 3 heures » se dit sans article, une date avec « le » ; et l'abréviation
+    du mois (« sept. ») porte déjà son point final. */
+function phraseDernierMouvement(date: string) {
+  const quand = formatDepuis(date);
+  const phrase = `Dernier mouvement ${estRelatif(date) ? quand : `le ${quand}`}`;
+  return phrase.endsWith('.') ? phrase : `${phrase}.`;
+}
+
+/** « mardi 21 octobre », avec la majuscule qu'Intl ne met pas en français. */
+function dateDuJour() {
+  const texte = new Date().toLocaleDateString('fr-CA', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  return texte.charAt(0).toUpperCase() + texte.slice(1);
+}
+
 export function DashboardPage() {
   const { data, isLoading, isError, error } = useLowStockProducts(1, APERCU_STOCK_BAS);
 
   const { data: stats, isError: erreurStats } = useDashboardStats();
+  const { data: recents, isLoading: chargeRecents, isError: erreurRecents } =
+    useRecentMovements(APERCU_ACTIVITE);
 
   const inactifs = stats?.inactiveWarehouses ?? 0;
 
@@ -327,11 +361,45 @@ export function DashboardPage() {
     });
   }, [data]);
 
+  const dernier = recents?.[0];
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight text-slate-900">
-        Tableau de bord
-      </h1>
+      {/*
+        L'en-tête ne portait que le titre : il fallait lire toute la grille pour
+        savoir s'il y avait quelque chose à faire. La phrase de synthèse le dit
+        d'emblée, et les deux actions les plus fréquentes sont à portée.
+      */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm text-slate-600">
+            <time dateTime={new Date().toISOString().slice(0, 10)}>{dateDuJour()}</time>
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+            Tableau de bord
+          </h1>
+          <p className="mt-1 text-sm text-slate-700" aria-live="polite">
+            {data && (
+              <>
+                {data.totalCount === 0
+                  ? 'Aucun produit sous le seuil.'
+                  : `${data.totalCount.toLocaleString('fr-CA')} produit${data.totalCount > 1 ? 's' : ''} sous le seuil.`}{' '}
+              </>
+            )}
+            {dernier && phraseDernierMouvement(dernier.createdAtUtc)}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link to="/movements" className="btn-primary">
+            <ArrowsLeftRight size={18} aria-hidden="true" />
+            Enregistrer un mouvement
+          </Link>
+          <Link to="/products?scanner=1" className="btn-secondary">
+            <Barcode size={18} aria-hidden="true" />
+            Scanner
+          </Link>
+        </div>
+      </div>
 
       {/*
         Grille bento : la liste de stock bas occupe deux colonnes sur deux rangées,
@@ -348,9 +416,9 @@ export function DashboardPage() {
               <h2 className="text-xl font-bold text-slate-800">Produits en stock bas</h2>
             </div>
             {data && data.totalCount > 0 && (
-              <span className="self-start rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-800 sm:self-auto">
-                {data.totalCount} au total
-              </span>
+              <Badge ton="alerte" taille="md" className="self-start font-semibold sm:self-auto">
+                {data.totalCount.toLocaleString('fr-CA')} au total
+              </Badge>
             )}
           </div>
 
@@ -359,7 +427,9 @@ export function DashboardPage() {
             isError={isError}
             error={error}
             isEmpty={items?.length === 0}
-            emptyMessage="Aucun produit sous le seuil."
+            emptyTitle="Tout est au-dessus du seuil"
+            emptyIcon={CheckCircle}
+            emptyMessage="Aucun produit n'est sous son seuil de stock bas."
             className="mt-4"
             skeletonRows={4}
           />
@@ -423,6 +493,7 @@ export function DashboardPage() {
         />
 
         <FluxDeStock stats={stats} />
+        <ActiviteRecente mouvements={recents} isLoading={chargeRecents} isError={erreurRecents} />
         <RepartitionEntrepots stats={stats} />
         <RepartitionCollections stats={stats} />
       </div>

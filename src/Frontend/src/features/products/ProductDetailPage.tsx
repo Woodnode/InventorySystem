@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
+import { ArrowsLeftRight, Warehouse } from '@phosphor-icons/react';
+import { Badge } from '../../shared/components/Badge';
 import { ExportButtons } from '../../shared/components/ExportButtons';
 import { PaginationControls } from '../../shared/components/PaginationControls';
 import { QueryState } from '../../shared/components/QueryState';
@@ -89,14 +91,10 @@ export function ProductDetailPage() {
             SKU {product.sku} {product.description && `· ${product.description}`}
           </p>
         </div>
-        <span
-          className={`w-fit shrink-0 rounded-full px-3 py-1 text-sm font-medium ${
-            product.isLowOnStock ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
-          }`}
-        >
+        <Badge ton={product.isLowOnStock ? 'alerte' : 'neutre'} taille="md">
           {product.isLowOnStock ? 'Stock bas · ' : ''}
-          {product.quantity} en stock · min. {product.lowStockThreshold}
-        </span>
+          {product.quantity.toLocaleString('fr-CA')} en stock · min. {product.lowStockThreshold}
+        </Badge>
       </div>
 
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -172,7 +170,9 @@ export function ProductDetailPage() {
             isError={isErrorStocks}
             error={errorStocks}
             isEmpty={stocks?.length === 0}
-            emptyMessage="Aucun stock enregistré."
+            emptyTitle="Aucun stock"
+            emptyIcon={Warehouse}
+            emptyMessage="Enregistre une entrée plus bas pour placer ce produit dans un entrepôt."
           />
           {stocks && stocks.length > 0 && (
             <div className="space-y-4">
@@ -180,7 +180,9 @@ export function ProductDetailPage() {
                 <div key={s.warehouseId} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-slate-800">{warehouseName(s.warehouseId)}</span>
-                    <span className="rounded bg-brand-900/10 px-2 py-0.5 font-mono text-xs font-medium text-brand-900">{s.quantity} unités</span>
+                    <Badge ton="marque">
+                      {s.quantity.toLocaleString('fr-CA')} unité{s.quantity > 1 ? 's' : ''}
+                    </Badge>
                   </div>
                   <div className="grid grid-cols-1 gap-2 text-xs text-slate-700 sm:grid-cols-2">
                     <div><span className="text-slate-600">Section:</span> {s.section || '—'}</div>
@@ -224,7 +226,9 @@ export function ProductDetailPage() {
           isError={isErrorMovements}
           error={errorMovements}
           isEmpty={movementsPageData?.items.length === 0}
-          emptyMessage="Aucun mouvement pour l'instant."
+          emptyTitle="Aucun mouvement"
+          emptyIcon={ArrowsLeftRight}
+          emptyMessage="Le formulaire ci-dessus enregistre la première entrée, sortie ou le premier transfert."
           className="mt-3"
         />
         {movementsPageData && movementsPageData.items.length > 0 && (
