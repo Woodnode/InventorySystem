@@ -97,9 +97,9 @@ public static class DemoDataSeeder
             ("LIV-0402", "Ils étaient dix",                                     "Agatha Christie",                12, 1, "Policier",         "Livre",          2023,  240m, [ 48, 16, 10,  8]),
             ("LIV-0403", "Le Chien des Baskerville",                            "Arthur Conan Doyle",             10, 3, "Policier",         "Livre",          2022,  230m, [ 19,  8,  4,  3]),
             ("LIV-0404", "Millénium, tome 1",                                   "Stieg Larsson",                  10, 1, "Policier",         "Livre",          2023,  760m, [  5,  2,  1,  1]),
-            ("LIV-0501", "Astérix le Gaulois",                                  "Goscinny et Uderzo",             15, 7, "Bande dessinée",   "Bande dessinée", 2023,  410m, [240,120, 60, 45]),
-            ("LIV-0502", "Tintin au Tibet",                                     "Hergé",                          12, 7, "Bande dessinée",   "Bande dessinée", 2022,  420m, [ 31, 12,  6,  5]),
-            ("LIV-0503", "Les Schtroumpfs noirs",                               "Peyo",                           10, 7, "Bande dessinée",   "Bande dessinée", 2022,  380m, [ 26, 10,  5,  3]),
+            ("LIV-0501", "Astérix le Gaulois",                                  "Goscinny et Uderzo",             15, 7, "Bande dessinée",   "Album",          2023,  410m, [240,120, 60, 45]),
+            ("LIV-0502", "Tintin au Tibet",                                     "Hergé",                          12, 7, "Bande dessinée",   "Album",          2022,  420m, [ 31, 12,  6,  5]),
+            ("LIV-0503", "Les Schtroumpfs noirs",                               "Peyo",                           10, 7, "Bande dessinée",   "Album",          2022,  380m, [ 26, 10,  5,  3]),
         };
 
         var activeWarehouses = warehouses[..4];
