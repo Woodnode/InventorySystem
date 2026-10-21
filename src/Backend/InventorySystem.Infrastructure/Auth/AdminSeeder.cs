@@ -76,4 +76,30 @@ public static class AdminSeeder
 
         logger.LogInformation("Compte Admin initial créé : {Email}", email);
     }
+
+    /// <summary>
+    /// Site vitrine (<c>Seed:Demo</c>) : le compte d'amorçage est celui que la page de connexion
+    /// affiche avec son mot de passe. Avec le verrouillage, cinq essais faux suffiraient à fermer
+    /// la démo à tous les visiteurs pendant 15 minutes ; la limite de débit par IP freine la force
+    /// brute à la place, comme pour <see cref="DemoUserSeeder"/>. S'applique aussi à un compte
+    /// créé avant ce réglage. Sans effet hors démonstration.
+    /// </summary>
+    public static async Task DisableLockoutForDemoAsync(
+        UserManager<ApplicationUser> userManager,
+        IConfiguration configuration,
+        ILogger logger)
+    {
+        var email = configuration["Seed:AdminEmail"];
+        if (!configuration.GetValue<bool>("Seed:Demo") || string.IsNullOrWhiteSpace(email))
+            return;
+
+        var user = await userManager.FindByEmailAsync(email);
+        if (user is null || !user.LockoutEnabled)
+            return;
+
+        await userManager.SetLockoutEnabledAsync(user, false);
+        await userManager.SetLockoutEndDateAsync(user, null);
+        await userManager.ResetAccessFailedCountAsync(user);
+        logger.LogInformation("Verrouillage désactivé pour le compte de démonstration {Email}", email);
+    }
 }

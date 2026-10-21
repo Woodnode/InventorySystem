@@ -5,8 +5,9 @@ using Microsoft.AspNetCore.Identity;
 namespace InventorySystem.Api.Demo;
 
 /// <summary>
-/// Remise à zéro quotidienne du site vitrine (voir <see cref="DemoReset"/>). Activée avec le jeu de
-/// démonstration (<c>Seed:Demo</c>), à l'heure UTC <c>Seed:DemoResetHourUtc</c> (4 h par défaut).
+/// Remise à zéro quotidienne du site vitrine (voir <see cref="DemoReset"/>). Activée par
+/// <c>Seed:DemoResetEnabled</c> avec le jeu de démonstration (<c>Seed:Demo</c>), à l'heure UTC
+/// <c>Seed:DemoResetHourUtc</c> (4 h par défaut). Inutile si le serveur la fait déjà par une tâche planifiée.
 /// </summary>
 public sealed class DemoResetService(
     IServiceScopeFactory scopes,

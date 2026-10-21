@@ -127,8 +127,9 @@ builder.Services.AddRateLimiter(options =>
         }));
 });
 
-// Site vitrine : comptes de démonstration publics, données remises à zéro chaque nuit.
-if (builder.Configuration.GetValue<bool>("Seed:Demo"))
+// Remise à zéro nocturne par l'API, à activer explicitement : en production, une tâche planifiée
+// du serveur remet déjà la démo à zéro, et deux remises par jour ne servent à rien.
+if (builder.Configuration.GetValue<bool>("Seed:Demo") && builder.Configuration.GetValue<bool>("Seed:DemoResetEnabled"))
     builder.Services.AddHostedService<DemoResetService>();
 
 var app = builder.Build();
@@ -175,6 +176,7 @@ using (var scope = app.Services.CreateScope())
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await AdminSeeder.SeedAsync(userManager, roleManager, app.Configuration, logger);
+    await AdminSeeder.DisableLockoutForDemoAsync(userManager, app.Configuration, logger);
 
     // Comptes de demonstration (un par role) : uniquement si Seed:DemoPassword est defini.
     await DemoUserSeeder.SeedAsync(userManager, roleManager, app.Configuration, logger);
