@@ -24,4 +24,9 @@
     <ProjectReference Include="..\..\src\Mobile\InventoryMobile.Infrastructure\InventoryMobile.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Le projet MAUI ne se référence pas depuis net10.0 : seul ce lecteur d'erreurs, sans dépendance MAUI, est repris. -->
+    <Compile Include="..\..\src\Mobile\InventoryMobile\Services\ApiErrorReader.cs" Link="Lies\ApiErrorReader.cs" />
+  </ItemGroup>
+
 </Project>
