@@ -288,7 +288,7 @@ public sealed class ImportProductsCommandHandlerTests
         produit.Sku.Value.Should().Be("LIV-0046", "le SKU est normalisé en majuscules");
     }
 
-    [Fact(Skip = "Bogue signalé : une ligne écartée pour un nombre de boîtes négatif laisse quand même son produit (compté comme créé) et sa ligne de stock dans le lot enregistré.")]
+    [Fact]
     public async Task EtantDonneNombreDeBoitesNegatif_QuandImporter_AlorsRienNEstCreePourCetteLigne()
     {
         var result = await ImporterCsvAsync("""
@@ -300,6 +300,26 @@ public sealed class ImportProductsCommandHandlerTests
         result.ProductsCreated.Should().Be(0);
         _produits.Ajoutes.Should().BeEmpty();
         _stocks.Lignes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task EtantDonneEntrepotDesactive_QuandImporterUneLigneVersLui_AlorsLigneEcarteeSansRienCreer()
+    {
+        var ferme = Warehouse.Create("Ancien dépôt", null);
+        ferme.Deactivate();
+        _entrepots.Existants.Add(ferme);
+
+        var result = await ImporterCsvAsync("""
+            Code produit;Titre;Location;Nbre Copies
+            LIV-0050;Vol de nuit;ancien dépôt;4
+            LIV-0051;Citadelle;Boutique;2
+            """);
+
+        result.Errors.Should().ContainSingle().Which.Should()
+            .Be("Le produit LIV-0050 a été ignoré: L'entrepôt « Ancien dépôt » est désactivé.");
+        result.ProductsCreated.Should().Be(1);
+        _produits.Ajoutes.Should().ContainSingle(p => p.Sku.Value == "LIV-0051");
+        _stocks.Lignes.Should().NotContain(l => l.WarehouseId == ferme.Id);
     }
 
     [Fact]

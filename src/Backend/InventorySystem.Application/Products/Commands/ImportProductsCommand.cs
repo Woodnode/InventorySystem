@@ -393,6 +393,18 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
 
             try
             {
+                // Tout ce qui peut faire écarter la ligne est vérifié ici, avant la moindre
+                // écriture : une ligne annoncée « ignorée » ne doit laisser ni produit ni stock
+                // dans le lot enregistré à la fin.
+                if (!string.IsNullOrWhiteSpace(record.Location))
+                {
+                    Stock.ValidateLogistics(record.NbreDeBoites ?? 0, record.NbreCopiesBoite ?? 0);
+
+                    var connu = allWarehouses.FirstOrDefault(w => w.Name.Equals(record.Location, StringComparison.OrdinalIgnoreCase));
+                    if (connu is { IsActive: false })
+                        throw new DomainException($"L'entrepôt « {connu.Name} » est désactivé.");
+                }
+
                 var product = productsInBatch.GetValueOrDefault(record.CodeProduit)
                     ?? await _products.GetBySkuAsync(record.CodeProduit, cancellationToken);
 

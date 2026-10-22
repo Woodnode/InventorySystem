@@ -59,8 +59,7 @@ public sealed class Stock : BaseEntity
         DateTime? entryDate, DateTime? exitDate, 
         string? distributorName, DateTime? returnDate, string? comment)
     {
-        if (boxesCount < 0) throw new DomainException("Le nombre de boîtes ne peut pas être négatif.");
-        if (copiesPerBox < 0) throw new DomainException("Le nombre de copies par boîte ne peut pas être négatif.");
+        ValidateLogistics(boxesCount, copiesPerBox);
 
         Section = section;
         Space = space;
@@ -77,6 +76,16 @@ public sealed class Stock : BaseEntity
     }
 
     /// <summary>Enregistre le résultat d'une prise d'inventaire physique (feuille "Inventaire").</summary>
+    /// <summary>
+    /// Règles des champs de logistique, vérifiables avant de toucher à un stock : l'import
+    /// écarte ainsi une ligne fautive sans avoir déjà créé son produit ni sa ligne de stock.
+    /// </summary>
+    public static void ValidateLogistics(int boxesCount, int copiesPerBox)
+    {
+        if (boxesCount < 0) throw new DomainException("Le nombre de boîtes ne peut pas être négatif.");
+        if (copiesPerBox < 0) throw new DomainException("Le nombre de copies par boîte ne peut pas être négatif.");
+    }
+
     public void RecordInventoryTake(DateTime? inventoryDate, string? responsibleName)
     {
         InventoryDate = inventoryDate;
