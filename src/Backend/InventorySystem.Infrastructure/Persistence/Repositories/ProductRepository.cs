@@ -16,7 +16,13 @@ public sealed class ProductRepository : IProductRepository
         => _db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
 
     public Task<Product?> GetBySkuAsync(string sku, CancellationToken ct = default)
-        => _db.Products.FirstOrDefaultAsync(p => p.Sku == Sku.Create(sku), ct);
+    {
+        // Validé hors de l'expression : EF enveloppe sinon la DomainException d'un SKU mal formé
+        // dans une InvalidOperationException, qui devenait une erreur 500 (scan) et faisait
+        // échouer tout un import au lieu de la seule ligne fautive.
+        var value = Sku.Create(sku);
+        return _db.Products.FirstOrDefaultAsync(p => p.Sku == value, ct);
+    }
 
     public Task<bool> ExistsAsync(Guid id, CancellationToken ct = default)
         => _db.Products.AnyAsync(p => p.Id == id, ct);
