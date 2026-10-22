@@ -174,6 +174,30 @@ public sealed class ReferentielsEndpointsTests
     }
 
     [Fact]
+    public async Task EtantDonneEntrepotOuFournisseurDesactive_QuandCreerUnProduit_AlorsRequeteInvalide()
+    {
+        var token = await GestionnaireAsync();
+        var entrepot = await _client.CreerEntrepotAsync(token);
+        var fournisseur = await _client.CreerFournisseurAsync(token);
+        var actif = await _client.CreerEntrepotAsync(token);
+        await _client.SendAsync(HttpMethod.Patch, $"/api/v1/warehouses/{entrepot}/active", token, JsonContent.Create(new { isActive = false }));
+        await _client.SendAsync(HttpMethod.Patch, $"/api/v1/suppliers/{fournisseur}/active", token, JsonContent.Create(new { isActive = false }));
+
+        var dansEntrepotFerme = await _client.SendAsync(HttpMethod.Post, "/api/v1/products", token, JsonContent.Create(new
+        {
+            sku = DonneesDeTest.Unique("FER"), name = "Entrepôt fermé", lowStockThreshold = 1, warehouseId = entrepot, initialQuantity = 1,
+        }));
+        var chezFournisseurInactif = await _client.SendAsync(HttpMethod.Post, "/api/v1/products", token, JsonContent.Create(new
+        {
+            sku = DonneesDeTest.Unique("INA"), name = "Fournisseur inactif", lowStockThreshold = 1, warehouseId = actif,
+            initialQuantity = 1, supplierId = fournisseur,
+        }));
+
+        (await dansEntrepotFerme.Content.ReadFromJsonAsync<ProblemDetails>())!.Detail.Should().Be("L'entrepôt spécifié est désactivé.");
+        (await chezFournisseurInactif.Content.ReadFromJsonAsync<ProblemDetails>())!.Detail.Should().Be("Le fournisseur spécifié est désactivé.");
+    }
+
+    [Fact]
     public async Task EtantDonneFournisseurInconnu_QuandCreerUnProduit_AlorsRequeteInvalide()
     {
         var token = await GestionnaireAsync();

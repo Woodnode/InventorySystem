@@ -89,6 +89,29 @@ public sealed class MouvementsEndpointsTests
     }
 
     [Fact]
+    public async Task EtantDonneEntrepotDesactive_QuandEntreeSortieOuTransfert_AlorsSeulLAjoutDeStockEstRefuse()
+    {
+        var (gestionnaire, employe, ferme, produit) = await PreparerAsync();
+        var actif = await _client.CreerEntrepotAsync(gestionnaire);
+        await _client.SendAsync(HttpMethod.Patch, $"/api/v1/warehouses/{ferme}/active", gestionnaire, JsonContent.Create(new { isActive = false }));
+
+        var entree = await _client.EnregistrerMouvementAsync(employe, produit, ferme, "In", 1);
+        var sortie = await _client.EnregistrerMouvementAsync(employe, produit, ferme, "Out", 2);
+        var versActif = await _client.EnregistrerMouvementAsync(employe, produit, ferme, "Transfer", 3, actif);
+        var versFerme = await _client.EnregistrerMouvementAsync(employe, produit, actif, "Transfer", 1, ferme);
+
+        entree.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await entree.Content.ReadFromJsonAsync<ProblemDetails>())!.Detail
+            .Should().Be("L'entrepôt est désactivé : il ne peut plus recevoir de stock.");
+        sortie.StatusCode.Should().Be(HttpStatusCode.Created);
+        versActif.StatusCode.Should().Be(HttpStatusCode.Created);
+        versFerme.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var stocks = await _client.LireAsync<List<StockDto>>($"/api/v1/stocks/product/{produit}", employe);
+        stocks.Single(s => s.WarehouseId == ferme).Quantity.Should().Be(5);
+        stocks.Single(s => s.WarehouseId == actif).Quantity.Should().Be(3);
+    }
+
+    [Fact]
     public async Task EtantDonneTypeInconnu_QuandEnregistrer_AlorsRequeteInvalide()
     {
         var (_, employe, entrepot, produit) = await PreparerAsync();

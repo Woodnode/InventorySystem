@@ -61,14 +61,22 @@ public sealed class CreateProductCommandValidator : AbstractValidator<CreateProd
         RuleFor(x => x.BoxesCount).GreaterThanOrEqualTo(0);
         RuleFor(x => x.CopiesPerBox).GreaterThanOrEqualTo(0);
 
+        // Un entrepôt ou un fournisseur désactivé disparaît des listes du web et du mobile ;
+        // l'API le refuse aussi, sinon un appel direct contournait la désactivation.
         RuleFor(x => x.WarehouseId)
+            .Cascade(CascadeMode.Stop)
             .MustAsync((id, ct) => warehouses.ExistsAsync(id, ct))
-            .WithMessage("L'entrepôt spécifié n'existe pas.");
+            .WithMessage("L'entrepôt spécifié n'existe pas.")
+            .MustAsync(async (id, ct) => (await warehouses.GetByIdAsync(id, ct))?.IsActive != false)
+            .WithMessage("L'entrepôt spécifié est désactivé.");
 
         RuleFor(x => x.SupplierId)
+            .Cascade(CascadeMode.Stop)
             .MustAsync((id, ct) => suppliers.ExistsAsync(id!.Value, ct))
-            .When(x => x.SupplierId is not null)
-            .WithMessage("Le fournisseur spécifié n'existe pas.");
+            .WithMessage("Le fournisseur spécifié n'existe pas.")
+            .MustAsync(async (id, ct) => (await suppliers.GetByIdAsync(id!.Value, ct))?.IsActive != false)
+            .WithMessage("Le fournisseur spécifié est désactivé.")
+            .When(x => x.SupplierId is not null);
     }
 }
 

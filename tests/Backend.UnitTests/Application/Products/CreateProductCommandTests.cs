@@ -93,6 +93,38 @@ public sealed class CreateProductCommandTests
     }
 
     [Fact]
+    public async Task EtantDonneEntrepotDesactive_QuandValider_AlorsRefuse()
+    {
+        var ferme = Warehouse.Create("Ancien dépôt", null);
+        ferme.Deactivate();
+        _warehouses.Setup(w => w.GetByIdAsync(_entrepot, It.IsAny<CancellationToken>())).ReturnsAsync(ferme);
+
+        var result = await Validateur().TestValidateAsync(Commande());
+
+        result.ShouldHaveValidationErrorFor(c => c.WarehouseId).WithErrorMessage("L'entrepôt spécifié est désactivé.");
+    }
+
+    [Fact]
+    public async Task EtantDonneEntrepotInconnu_QuandValider_AlorsUnSeulMessage()
+    {
+        var result = await Validateur().TestValidateAsync(Commande(entrepot: Guid.NewGuid()));
+
+        result.Errors.Where(e => e.PropertyName == nameof(CreateProductCommand.WarehouseId)).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task EtantDonneFournisseurDesactive_QuandValider_AlorsRefuse()
+    {
+        var inactif = Supplier.Create("Ancien fournisseur", null, null);
+        inactif.Deactivate();
+        _suppliers.Setup(s => s.GetByIdAsync(_fournisseur, It.IsAny<CancellationToken>())).ReturnsAsync(inactif);
+
+        var result = await Validateur().TestValidateAsync(Commande(fournisseur: _fournisseur));
+
+        result.ShouldHaveValidationErrorFor(c => c.SupplierId).WithErrorMessage("Le fournisseur spécifié est désactivé.");
+    }
+
+    [Fact]
     public async Task EtantDonneSansFournisseur_QuandValider_AlorsAccepteSansInterrogerLesFournisseurs()
     {
         var result = await Validateur().TestValidateAsync(Commande());

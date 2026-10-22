@@ -38,6 +38,14 @@ public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMov
             .MustAsync((id, ct) => warehouses.ExistsAsync(id, ct))
             .WithMessage("L'entrepôt source n'existe pas.");
 
+        // Un entrepôt désactivé ne reçoit plus de stock, mais peut encore être vidé : les
+        // sorties et les transferts depuis lui restent permis (y compris ceux saisis hors
+        // ligne avant sa fermeture).
+        RuleFor(x => x.WarehouseId)
+            .MustAsync(async (id, ct) => (await warehouses.GetByIdAsync(id, ct))?.IsActive != false)
+            .When(x => x.Type == MovementType.In)
+            .WithMessage("L'entrepôt est désactivé : il ne peut plus recevoir de stock.");
+
         RuleFor(x => x.ToWarehouseId)
             .NotNull().WithMessage("Un transfert doit préciser l'entrepôt de destination.")
             .When(x => x.Type == MovementType.Transfer);
@@ -50,6 +58,11 @@ public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMov
             .MustAsync((id, ct) => warehouses.ExistsAsync(id!.Value, ct))
             .When(x => x.Type == MovementType.Transfer && x.ToWarehouseId is not null)
             .WithMessage("L'entrepôt de destination n'existe pas.");
+
+        RuleFor(x => x.ToWarehouseId)
+            .MustAsync(async (id, ct) => (await warehouses.GetByIdAsync(id!.Value, ct))?.IsActive != false)
+            .When(x => x.Type == MovementType.Transfer && x.ToWarehouseId is not null)
+            .WithMessage("L'entrepôt de destination est désactivé : il ne peut plus recevoir de stock.");
 
         RuleFor(x => x)
             .Must(x => x.ToWarehouseId != x.WarehouseId)

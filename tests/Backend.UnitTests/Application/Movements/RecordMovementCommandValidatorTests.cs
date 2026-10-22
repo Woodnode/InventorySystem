@@ -147,15 +147,47 @@ public sealed class RecordMovementCommandValidatorTests
         result.Errors.Should().Contain(e => e.ErrorMessage == "L'entrepôt de destination doit être différent de l'entrepôt source.");
     }
 
-    [Fact(Skip = "Bogue signalé : l'API accepte un mouvement dans un entrepôt désactivé (seuls les clients le masquent). Décision à prendre sur les sorties et transferts depuis un entrepôt fermé.")]
-    public async Task EtantDonneEntrepotDesactive_QuandEnregistrerUnMouvement_AlorsRefuse()
+    [Fact]
+    public async Task EtantDonneEntrepotDesactive_QuandEnregistrerUneEntree_AlorsRefusee()
     {
-        _warehouses.Setup(w => w.GetByIdAsync(_source, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Desactive());
+        _warehouses.Setup(w => w.GetByIdAsync(_source, It.IsAny<CancellationToken>())).ReturnsAsync(Desactive());
 
-        var result = await Creer().TestValidateAsync(Commande());
+        var result = await Creer().TestValidateAsync(Commande(MovementType.In));
 
-        result.ShouldHaveValidationErrorFor(c => c.WarehouseId);
+        result.ShouldHaveValidationErrorFor(c => c.WarehouseId)
+            .WithErrorMessage("L'entrepôt est désactivé : il ne peut plus recevoir de stock.");
+    }
+
+    [Fact]
+    public async Task EtantDonneEntrepotDesactive_QuandEnregistrerUneSortie_AlorsAcceptee()
+    {
+        // Un entrepôt fermé doit pouvoir être vidé, y compris par une sortie saisie hors ligne.
+        _warehouses.Setup(w => w.GetByIdAsync(_source, It.IsAny<CancellationToken>())).ReturnsAsync(Desactive());
+
+        var result = await Creer().TestValidateAsync(Commande(MovementType.Out));
+
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public async Task EtantDonneEntrepotSourceDesactive_QuandTransfererVersUnEntrepotActif_AlorsAccepte()
+    {
+        _warehouses.Setup(w => w.GetByIdAsync(_source, It.IsAny<CancellationToken>())).ReturnsAsync(Desactive());
+
+        var result = await Creer().TestValidateAsync(Commande(MovementType.Transfer, destination: _destination));
+
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public async Task EtantDonneDestinationDesactivee_QuandTransferer_AlorsRefuse()
+    {
+        _warehouses.Setup(w => w.GetByIdAsync(_destination, It.IsAny<CancellationToken>())).ReturnsAsync(Desactive());
+
+        var result = await Creer().TestValidateAsync(Commande(MovementType.Transfer, destination: _destination));
+
+        result.ShouldHaveValidationErrorFor(c => c.ToWarehouseId)
+            .WithErrorMessage("L'entrepôt de destination est désactivé : il ne peut plus recevoir de stock.");
     }
 
     private static Warehouse Desactive()
