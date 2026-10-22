@@ -55,11 +55,12 @@ public static class DemoUserSeeder
             var existing = await userManager.FindByEmailAsync(email);
             if (existing is not null)
             {
-                // Comptes créés avant que le verrouillage soit désactivé pour la démo.
+                // Comptes créés avant que le verrouillage soit désactivé pour la démo. La date de
+                // fin s'efface d'abord : Identity refuse de la modifier une fois le verrouillage coupé.
                 if (existing.LockoutEnabled)
                 {
-                    await userManager.SetLockoutEnabledAsync(existing, false);
                     await userManager.SetLockoutEndDateAsync(existing, null);
+                    await userManager.SetLockoutEnabledAsync(existing, false);
                 }
                 continue;
             }

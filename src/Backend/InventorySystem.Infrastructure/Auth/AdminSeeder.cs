@@ -97,8 +97,9 @@ public static class AdminSeeder
         if (user is null || !user.LockoutEnabled)
             return;
 
-        await userManager.SetLockoutEnabledAsync(user, false);
+        // Date de fin effacée avant de couper le verrouillage : Identity refuse ensuite de la modifier.
         await userManager.SetLockoutEndDateAsync(user, null);
+        await userManager.SetLockoutEnabledAsync(user, false);
         await userManager.ResetAccessFailedCountAsync(user);
         logger.LogInformation("Verrouillage désactivé pour le compte de démonstration {Email}", email);
     }
