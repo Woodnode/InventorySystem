@@ -25,6 +25,8 @@
     <ProjectReference Include="..\..\src\Backend\InventorySystem.Domain\InventorySystem.Domain.csproj" />
     <!-- Nécessaire pour tester ExportService (implémentation concrète, voir AUDIT.md B-T1) -->
     <ProjectReference Include="..\..\src\Backend\InventorySystem.Infrastructure\InventorySystem.Infrastructure.csproj" />
+    <!-- Middlewares, contrôleurs et règles d'architecture (dossiers Security et Architecture). -->
+    <ProjectReference Include="..\..\src\Backend\InventorySystem.Api\InventorySystem.Api.csproj" />
   </ItemGroup>
 
 </Project>
