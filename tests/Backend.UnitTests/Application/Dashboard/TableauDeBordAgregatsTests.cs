@@ -29,7 +29,8 @@ public sealed class TableauDeBordAgregatsTests
     }
 
     private Task<DashboardStatsDto> CalculerAsync(int periode = 30)
-        => new GetDashboardStatsQueryHandler(_products.Object, _warehouses.Object, _movements.Object, _stocks.Object)
+        => new GetDashboardStatsQueryHandler(_products.Object, _warehouses.Object, _movements.Object, _stocks.Object,
+                new HorlogeFixe(new DateTimeOffset(2026, 10, 22, 0, 0, 1, TimeSpan.Zero)))
             .Handle(new GetDashboardStatsQuery(periode), default);
 
     [Fact]

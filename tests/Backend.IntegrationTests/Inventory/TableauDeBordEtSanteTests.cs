@@ -44,15 +44,21 @@ public sealed class TableauDeBordEtSanteTests
     public async Task EtantDonneEntreeEtSortieDuJour_QuandLireLeTableauDeBord_AlorsComptesDansLeSoldeDuJour()
     {
         var token = await RoleTokens.GetAsync(_factory, RoleTokens.Gestionnaire);
-        var entrepot = await _client.CreerEntrepotAsync(token);
-        var produit = await _client.CreerProduitAsync(token, entrepot, 0);
-        var avant = await _client.LireAsync<DashboardStatsDto>("/api/v1/dashboard/stats?periodDays=7", token);
+        DashboardStatsDto avant, apres;
+        var essais = 0;
+        do
+        {
+            // Rejoué si minuit UTC passe entre les deux lectures : la fenêtre aurait glissé d'un jour.
+            var entrepot = await _client.CreerEntrepotAsync(token);
+            var produit = await _client.CreerProduitAsync(token, entrepot, 0);
+            avant = await _client.LireAsync<DashboardStatsDto>("/api/v1/dashboard/stats?periodDays=7", token);
 
-        await _client.EnregistrerMouvementAsync(token, produit, entrepot, "In", 40);
-        await _client.EnregistrerMouvementAsync(token, produit, entrepot, "Out", 15);
-        var apres = await _client.LireAsync<DashboardStatsDto>("/api/v1/dashboard/stats?periodDays=7", token);
+            await _client.EnregistrerMouvementAsync(token, produit, entrepot, "In", 40);
+            await _client.EnregistrerMouvementAsync(token, produit, entrepot, "Out", 15);
+            apres = await _client.LireAsync<DashboardStatsDto>("/api/v1/dashboard/stats?periodDays=7", token);
+        }
+        while (apres.DailyFlow[^1].Date != avant.DailyFlow[^1].Date && ++essais < 2);
 
-        // Comparaison avant/après sur la même journée : rien ne dépend de la date du jour.
         apres.DailyFlow[^1].Date.Should().Be(avant.DailyFlow[^1].Date);
         (apres.DailyFlow[^1].In - avant.DailyFlow[^1].In).Should().Be(40);
         (apres.DailyFlow[^1].Out - avant.DailyFlow[^1].Out).Should().Be(15);

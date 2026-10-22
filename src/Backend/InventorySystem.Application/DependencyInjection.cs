@@ -4,6 +4,7 @@ using FluentValidation;
 using InventorySystem.Application.Common.Behaviors;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace InventorySystem.Application;
 
@@ -25,6 +26,7 @@ public static class DependencyInjection
         ValidatorOptions.Global.LanguageManager.Culture = new CultureInfo("fr");
 
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
+        services.TryAddSingleton(TimeProvider.System);
         services.AddValidatorsFromAssembly(assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 

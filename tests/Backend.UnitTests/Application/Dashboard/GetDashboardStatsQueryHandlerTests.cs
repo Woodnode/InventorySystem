@@ -19,8 +19,12 @@ public sealed class GetDashboardStatsQueryHandlerTests
     private readonly Mock<IStockMovementRepository> _movements = new();
     private readonly Mock<IStockRepository> _stocks = new();
 
+    /// <summary>Jour courant fixé : le résultat ne dépend pas de l'heure d'exécution.</summary>
+    private static readonly DateTime Aujourdhui = new(2026, 10, 22, 0, 0, 0, DateTimeKind.Utc);
+
     private GetDashboardStatsQueryHandler CreateHandler()
-        => new(_products.Object, _warehouses.Object, _movements.Object, _stocks.Object);
+        => new(_products.Object, _warehouses.Object, _movements.Object, _stocks.Object,
+            new HorlogeFixe(new DateTimeOffset(Aujourdhui.AddHours(23).AddMinutes(59), TimeSpan.Zero)));
 
     public GetDashboardStatsQueryHandlerTests()
     {
@@ -46,7 +50,7 @@ public sealed class GetDashboardStatsQueryHandlerTests
     {
         // Un seul jour porte des mouvements : les autres doivent tout de meme apparaitre
         // a zero, sinon la courbe se contracte et donne a lire un rythme inexistant.
-        var hier = DateTime.UtcNow.Date.AddDays(-1);
+        var hier = Aujourdhui.AddDays(-1);
         _movements
             .Setup(m => m.SumByDayAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new DailyMovementTotals(hier, 100, 40) });
@@ -63,7 +67,7 @@ public sealed class GetDashboardStatsQueryHandlerTests
     [Fact]
     public async Task Handle_SplitsWindowIntoCurrentAndPreviousPeriods()
     {
-        var aujourdhui = DateTime.UtcNow.Date;
+        var aujourdhui = Aujourdhui;
         _movements
             .Setup(m => m.SumByDayAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
@@ -85,7 +89,7 @@ public sealed class GetDashboardStatsQueryHandlerTests
         // « +100 % » a partir de zero serait une information inventee.
         _movements
             .Setup(m => m.SumByDayAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { new DailyMovementTotals(DateTime.UtcNow.Date, 30, 0) });
+            .ReturnsAsync(new[] { new DailyMovementTotals(Aujourdhui, 30, 0) });
 
         var result = await CreateHandler().Handle(new GetDashboardStatsQuery(7), CancellationToken.None);
 

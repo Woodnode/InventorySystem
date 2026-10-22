@@ -26,17 +26,20 @@ public sealed class GetDashboardStatsQueryHandler
     private readonly IWarehouseRepository _warehouses;
     private readonly IStockMovementRepository _movements;
     private readonly IStockRepository _stocks;
+    private readonly TimeProvider _horloge;
 
     public GetDashboardStatsQueryHandler(
         IProductRepository products,
         IWarehouseRepository warehouses,
         IStockMovementRepository movements,
-        IStockRepository stocks)
+        IStockRepository stocks,
+        TimeProvider horloge)
     {
         _products = products;
         _warehouses = warehouses;
         _movements = movements;
         _stocks = stocks;
+        _horloge = horloge;
     }
 
     public async Task<DashboardStatsDto> Handle(
@@ -47,7 +50,9 @@ public sealed class GetDashboardStatsQueryHandler
 
         // Journees pleines : on part du debut de la journee courante pour que la
         // derniere barre ne soit pas systematiquement tronquee par l'heure d'appel.
-        var aujourdhui = DateTime.UtcNow.Date;
+        // Horloge injectée : les tests fixent le jour courant au lieu de dépendre de l'heure
+        // d'exécution (un test lancé à minuit UTC voyait la fenêtre glisser d'un jour).
+        var aujourdhui = _horloge.GetUtcNow().UtcDateTime.Date;
         var debutPeriode = aujourdhui.AddDays(-(periodDays - 1));
         var debutPrecedente = debutPeriode.AddDays(-periodDays);
 
