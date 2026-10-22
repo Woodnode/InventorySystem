@@ -84,9 +84,9 @@ InventorySystem/
 │   └── Mobile/       App .NET MAUI + 3 class libs (Domain/Application/Infrastructure)
 │                     Infrastructure : Api/, Persistence/ (SQLite offline), Realtime/ (SignalR), Sync/
 ├── tests/
-│   ├── Backend.UnitTests/
-│   ├── Backend.IntegrationTests/
-│   └── Mobile.UnitTests/    (MovementSyncService, seule logique mobile à branches)
+│   ├── Backend.UnitTests/         Security/, Architecture/, Application/, Domain/
+│   ├── Backend.IntegrationTests/  Security/, Auth/, Inventory/, Realtime/
+│   └── Mobile.UnitTests/          Sync/, Auth/, Scan/, Architecture/
 ├── docker-compose.yml       postgres + pgadmin + api + frontend
 └── .github/workflows/ci.yml backend + frontend + mobile (tests + build Android/Windows)
 ```
@@ -217,9 +217,34 @@ Les rôles sont fixes (`Admin`, `Gestionnaire`, `Employe`) et exposés par des p
 
 `Jwt:Key` n'est jamais commitée. En local, elle se définit avec `dotnet user-secrets` (voir plus haut) ; en production, par une variable d'environnement ou un coffre-fort. Si la clé manque ou est trop courte, l'API refuse toute requête d'authentification.
 
-Le CORS est limité aux origines listées dans `Cors:AllowedOrigins`.
+Le CORS est limité aux origines listées dans `Cors:AllowedOrigins`. Chaque réponse porte `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` et une CSP `default-src 'none'` (`SecurityHeadersMiddleware`). Les erreurs sortent en `application/problem+json` avec un message métier ; une exception imprévue ne renvoie qu'un message générique, sans pile ni détail interne.
+
+Un entrepôt ou un fournisseur désactivé ne peut plus recevoir de stock ni de nouveau produit, et l'API le refuse elle-même : masquer l'entrepôt dans les listes du web et du mobile ne suffisait pas contre un appel direct. Il reste possible de le vider par des sorties ou des transferts.
+
+### Ce que vérifient les tests de sécurité
+
+Ces règles sont testées, pas seulement décrites. Les dossiers `tests/Backend.UnitTests/Security` et `tests/Backend.IntegrationTests/Security` couvrent :
+
+- **Autorisations par rôle** : chaque route métier est appelée sans jeton, puis en Employe, Gestionnaire et Admin. Un test compare la liste des routes exposées par l'API à cette matrice, si bien qu'une route ajoutée sans relecture de ses droits fait échouer la suite.
+- **Jetons d'accès forgés** : signés avec une autre clé, `alg: none`, rôle réécrit sans nouvelle signature, expirés, mauvais émetteur ou mauvaise audience, refresh token présenté comme Bearer, jeton passé dans l'URL hors du hub SignalR. Tous refusés, sans explication.
+- **Vol de refresh token** : un jeton rejoué hors de la fenêtre de 30 secondes révoque toute sa famille, sans toucher aux autres sessions du même compte. La base ne stocke que le haché.
+- **Force brute** : la limite de débit par IP, le relais falsifié par un client public, les adresses IPv6 regroupées par /64, et les comptes de démonstration qu'aucune série de mauvais mots de passe ne peut verrouiller.
+- **Fuites d'information** : ressource inexistante, courriel inconnu et mauvais mot de passe donnent la même réponse ; aucune réponse d'erreur ne contient de pile, de requête SQL ou de nom de type .NET.
+- **Transport** : en-têtes de sécurité sur toutes les réponses (y compris 401, 404 et 429), CORS fermé aux origines inconnues, attributs du cookie, clé JWT de moins de 32 caractères refusée.
+
+Un test d'architecture (`tests/Backend.UnitTests/Architecture`, NetArchTest) vérifie en plus que le domaine ne dépend de rien, que l'application ignore l'infrastructure et que les contrôleurs ne touchent jamais la base directement.
 
 ## Tests
+
+| Projet | Tests | Contenu |
+|--------|------:|---------|
+| `tests/Backend.UnitTests` | 304 | Sécurité, architecture, domaine, cas d'usage (mouvements, import CSV et Excel, catalogue, référentiels, tableau de bord) |
+| `tests/Backend.IntegrationTests` | 268 | Sécurité de bout en bout et chaque route de l'API, contre une vraie base PostgreSQL (Testcontainers) |
+| `tests/Mobile.UnitTests` | 54 | File hors ligne SQLite, synchronisation, session, contrat du scan |
+| `src/Frontend` (Vitest) | 77 | Pages, formulaire de mouvement, routes protégées, client API |
+| **Total** | **703** | |
+
+Les tests suivent le nommage `EtantDonne…_Quand…_Alors…` et ne dépendent ni de l'ordre d'exécution ni de l'heure : l'horloge du tableau de bord est injectée (`TimeProvider`).
 
 ```bash
 # Backend, tests unitaires
@@ -228,8 +253,7 @@ dotnet test tests/Backend.UnitTests/InventorySystem.Backend.UnitTests.csproj
 # Backend, tests d'intégration (Docker requis : Testcontainers PostgreSQL)
 dotnet test tests/Backend.IntegrationTests/InventorySystem.Backend.IntegrationTests.csproj
 
-# Mobile, tests unitaires (MovementSyncService, la seule logique mobile à branches ;
-# le reste du mobile est de la plomberie MVVM et plateforme)
+# Mobile, tests unitaires
 dotnet test tests/Mobile.UnitTests/InventoryMobile.Mobile.UnitTests.csproj
 
 # Frontend
@@ -246,7 +270,7 @@ L'authentification utilise Identity, un JWT et un refresh token avec rotation, e
 
 Les migrations EF Core `InitialCreate`, `AddWarehousesSuppliersAndStock`, `AddStockConcurrencyToken` et `AddStockMovementProductCreatedIndex` sont générées ; elles s'appliquent avec `dotnet ef database update` (voir Démarrage local).
 
-Côté tests, 21 tests unitaires couvrent le domaine (`Product`, `Stock`) et l'application, dont `RecordMovementCommandHandler` et `GetProductBySkuQuery`. Les 30 scénarios d'intégration passent par `WebApplicationFactory` et Testcontainers PostgreSQL : inscription, connexion, refresh et déconnexion, cookie du refresh token, policies de rôles, création d'un produit avec son stock initial, mouvements d'entrée et de sortie, transferts entre entrepôts et stock insuffisant. Le front est testé avec Vitest et React Testing Library.
+Côté tests, la suite compte 703 tests (détail dans la section Tests). Les tests d'intégration passent par `WebApplicationFactory` et Testcontainers PostgreSQL et appellent chaque route de l'API, en succès comme en erreur. Écrire ces tests a fait ressortir cinq bogues, corrigés depuis : une recherche par SKU trop court renvoyait une erreur 500 et faisait échouer tout un import, l'API acceptait du stock dans un entrepôt désactivé, une ligne d'import écartée créait quand même son produit, les erreurs n'annonçaient pas le format `problem+json`, et l'amorçage des comptes de démonstration laissait une date de verrouillage en base. Le front est testé avec Vitest et React Testing Library.
 
 Le frontend React est organisé par fonctionnalité, avec un client API, TanStack Query et un tableau de bord. Ses messages d'erreur reprennent le détail renvoyé par le backend. Les produits et l'historique des mouvements s'exportent en Excel ou CSV, en entier ou pour un produit (`IExportService`, ClosedXML, CsvHelper, `GET /products/export` et `GET /movements/export`).
 
@@ -256,7 +280,7 @@ Docker Compose lance PostgreSQL, pgAdmin, l'API et le frontend, ces deux dernier
 
 L'application mobile a été construite en deux jalons. Le premier couvre l'authentification, la liste des produits et l'enregistrement d'un mouvement en ligne : contrat Refit complet (`IInventoryApi`) calqué sur les controllers, session persistée dans `SecureStorage` avec rafraîchissement anticipé du jeton (`AuthHeaderHandler`), pages Login, Produits et Mouvement, ViewModels MVVM Community Toolkit et navigation Shell.
 
-Le second ajoute trois fonctions. Le scan QR et code-barres (`ScanViewModel`, ZXing.Net.MAUI) cherche le produit par SKU (`GET /products/by-sku/{sku}`) et préremplit le mouvement ; sous Windows, où la caméra n'est pas gérée, un message s'affiche. Le mode hors ligne range les mouvements dans une file SQLite (`LocalMovement`, pattern Outbox, `sqlite-net-pcl`), rendue idempotente par le `ClientGuid`, et les synchronise au retour sur l'écran des produits, avec un indicateur « en attente ». Enfin, un client SignalR mobile (`IStockAlertHubClient`) écoute le même `StockHub` que le tableau de bord React et affiche une notification locale (Plugin.LocalNotification) à chaque alerte de stock bas. Il n'y a pas de FCM ni d'APNs, qui demanderaient un projet Firebase externe : une app complètement fermée n'est donc pas réveillée. Des tests unitaires couvrent `MovementSyncService` (`tests/Mobile.UnitTests`).
+Le second ajoute trois fonctions. Le scan QR et code-barres (`ScanViewModel`, ZXing.Net.MAUI) cherche le produit par SKU (`GET /products/by-sku/{sku}`) et préremplit le mouvement ; sous Windows, où la caméra n'est pas gérée, un message s'affiche. Le mode hors ligne range les mouvements dans une file SQLite (`LocalMovement`, pattern Outbox, `sqlite-net-pcl`), rendue idempotente par le `ClientGuid`, et les synchronise au retour sur l'écran des produits, avec un indicateur « en attente ». Enfin, un client SignalR mobile (`IStockAlertHubClient`) écoute le même `StockHub` que le tableau de bord React et affiche une notification locale (Plugin.LocalNotification) à chaque alerte de stock bas. Il n'y a pas de FCM ni d'APNs, qui demanderaient un projet Firebase externe : une app complètement fermée n'est donc pas réveillée. Des tests unitaires couvrent la file hors ligne, la synchronisation et le scan (`tests/Mobile.UnitTests`).
 
 L'application mobile a ensuite été remise au niveau du web mobile. Elle a maintenant un tableau de bord (stock bas, indicateurs, flux de stock, répartitions), un catalogue paginé avec recherche et filtre de stock bas, une fiche produit (emplacements, historique, caractéristiques), un journal des mouvements où l'on peut envoyer à la main la file hors ligne, et la liste des entrepôts en lecture seule. Ses polices et ses icônes sont régénérées depuis le front par `scripts/generer_ressources.py`.
 
