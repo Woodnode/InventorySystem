@@ -15,7 +15,7 @@ namespace InventorySystem.Backend.IntegrationTests;
 /// base plutôt que des mocks de repository. Partagée par toute la classe de tests
 /// via <see cref="IntegrationTestCollection"/> pour ne payer le coût du conteneur qu'une fois.
 /// </summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     /// <summary>Clé de test uniquement — jamais utilisée en dehors des tests (voir TokenService).</summary>
     public const string TestJwtKey = "integration-tests-only-signing-key-not-for-prod-use-32chars";
@@ -48,8 +48,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 // Tous les tests partagent la même « adresse » : la limite de production les bloquerait.
                 ["RateLimiting:AuthPerMinute"] = "10000",
             });
+            config.AddInMemoryCollection(AdditionalSettings);
         });
     }
+
+    /// <summary>Réglages propres à une fabrique dérivée, appliqués après ceux du dessus.</summary>
+    protected virtual IDictionary<string, string?> AdditionalSettings { get; } = new Dictionary<string, string?>();
 
     public async Task InitializeAsync()
     {
