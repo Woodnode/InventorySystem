@@ -43,6 +43,18 @@ public sealed class StockTests
     }
 
     [Fact]
+    public void Increase_BeyondIntMaxValue_ThrowsAndKeepsQuantity()
+    {
+        // Non-régression : le dépassement rendait auparavant le stock négatif en silence.
+        var stock = NewStock(quantity: int.MaxValue - 1);
+
+        var act = () => stock.Increase(2);
+
+        act.Should().Throw<InvalidMovementException>();
+        stock.Quantity.Should().Be(int.MaxValue - 1);
+    }
+
+    [Fact]
     public void Increase_AddsToQuantity()
     {
         var stock = NewStock(quantity: 10);

@@ -19,4 +19,7 @@ WORKDIR /app
 COPY --from=build /app/publish .
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
+# Utilisateur non root fourni par les images .NET 8+ (UID 1654). Le port 8080 est au-dessus
+# de 1024, il n'exige donc aucun privilège.
+USER app
 ENTRYPOINT ["dotnet", "InventorySystem.Api.dll"]

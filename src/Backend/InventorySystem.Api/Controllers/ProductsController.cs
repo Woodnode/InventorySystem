@@ -20,6 +20,9 @@ namespace InventorySystem.Api.Controllers;
 [Authorize(Policy = "RequireEmployeOrAbove")]
 public sealed class ProductsController : ControllerBase
 {
+    /// <summary>Taille maximale d'un fichier d'import (10 Mo).</summary>
+    public const long MaxImportFileBytes = 10 * 1024 * 1024;
+
     private readonly ISender _mediator;
 
     public ProductsController(ISender mediator) => _mediator = mediator;
@@ -111,6 +114,10 @@ public sealed class ProductsController : ControllerBase
     /// <summary>Importe le catalogue produits depuis un fichier CSV.</summary>
     [HttpPost("import")]
     [Authorize(Policy = "RequireGestionnaireOrAbove")]
+    // 10 Mo : le classeur d'inventaire réel pèse bien moins ; refuse les envois démesurés
+    // avant même la lecture (limites Kestrel et formulaire multipart).
+    [RequestSizeLimit(MaxImportFileBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxImportFileBytes)]
     [ProducesResponseType(typeof(ImportResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Import(IFormFile file, CancellationToken ct)

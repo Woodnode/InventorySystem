@@ -24,6 +24,12 @@ public sealed record RecordMovementCommand(
 
 public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMovementCommand>
 {
+    /// <summary>
+    /// Borne métier d'un seul mouvement. Aucune réception réelle n'approche ce volume ; au-delà,
+    /// c'est une erreur de saisie (ou une tentative de faire déborder le stock).
+    /// </summary>
+    public const int MaxQuantityPerMovement = 1_000_000;
+
     public RecordMovementCommandValidator(IProductRepository products, IWarehouseRepository warehouses)
     {
         RuleFor(x => x.ProductId).NotEmpty()
@@ -31,12 +37,14 @@ public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMov
             .WithMessage("Produit introuvable.");
 
         RuleFor(x => x.Type).IsInEnum();
-        RuleFor(x => x.Quantity).GreaterThan(0);
+        RuleFor(x => x.Quantity).GreaterThan(0).LessThanOrEqualTo(MaxQuantityPerMovement);
         RuleFor(x => x.Reason).MaximumLength(500);
 
+        // Un entrepôt désactivé ne doit plus recevoir ni céder de stock : IsActiveAsync renvoie
+        // false aussi bien pour un entrepôt inexistant que pour un entrepôt désactivé.
         RuleFor(x => x.WarehouseId)
-            .MustAsync((id, ct) => warehouses.ExistsAsync(id, ct))
-            .WithMessage("L'entrepôt source n'existe pas.");
+            .MustAsync((id, ct) => warehouses.IsActiveAsync(id, ct))
+            .WithMessage("L'entrepôt source n'existe pas ou est désactivé.");
 
         RuleFor(x => x.ToWarehouseId)
             .NotNull().WithMessage("Un transfert doit préciser l'entrepôt de destination.")
@@ -47,9 +55,9 @@ public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMov
             .When(x => x.Type != MovementType.Transfer);
 
         RuleFor(x => x.ToWarehouseId)
-            .MustAsync((id, ct) => warehouses.ExistsAsync(id!.Value, ct))
+            .MustAsync((id, ct) => warehouses.IsActiveAsync(id!.Value, ct))
             .When(x => x.Type == MovementType.Transfer && x.ToWarehouseId is not null)
-            .WithMessage("L'entrepôt de destination n'existe pas.");
+            .WithMessage("L'entrepôt de destination n'existe pas ou est désactivé.");
 
         RuleFor(x => x)
             .Must(x => x.ToWarehouseId != x.WarehouseId)

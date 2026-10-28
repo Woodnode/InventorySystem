@@ -18,6 +18,14 @@ public interface IInventoryApi
     Task<AuthResultResponse> RefreshAsync([Body] RefreshTokenRequest request, CancellationToken ct = default);
 
     /// <summary>
+    /// Révoque côté serveur toute la famille du refresh token (endpoint anonyme, 204).
+    /// Sans cet appel, un refresh token copié depuis l'appareil restait utilisable après la
+    /// déconnexion jusqu'à son expiration.
+    /// </summary>
+    [Post("/auth/logout")]
+    Task LogoutAsync([Body] RefreshTokenRequest request, CancellationToken ct = default);
+
+    /// <summary>
     /// Paginé côté backend (le catalogue grandit sans borne) — voir <see cref="PagedResponse{T}"/>.
     /// <paramref name="search"/> porte sur le SKU et le nom, comme la recherche du web ; un
     /// paramètre nul n'est pas envoyé.

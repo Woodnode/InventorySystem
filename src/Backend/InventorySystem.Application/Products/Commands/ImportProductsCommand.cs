@@ -9,6 +9,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using CsvHelper.Configuration.Attributes;
 using InventorySystem.Domain.Entities;
 using InventorySystem.Domain.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace InventorySystem.Application.Products.Commands;
 
@@ -112,21 +113,34 @@ public sealed class CsvProductRecord
 
 public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProductsCommand, ImportResult>
 {
+    /// <summary>
+    /// Nombre maximal de lignes lues dans un fichier d'import. Le classeur d'inventaire réel
+    /// en compte quelques centaines ; sans plafond, un fichier énorme occupait la mémoire et
+    /// la base pendant de longues minutes. La lecture s'arrête dès que ce nombre est dépassé.
+    /// </summary>
+    public const int MaxImportRows = 5_000;
+
+    private static readonly string TooManyRowsMessage =
+        $"Le fichier dépasse la limite de {MaxImportRows} lignes. Découpez-le en plusieurs fichiers.";
+
     private readonly IProductRepository _products;
     private readonly IStockRepository _stocks;
     private readonly IWarehouseRepository _warehouses;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<ImportProductsCommandHandler> _logger;
 
     public ImportProductsCommandHandler(
         IProductRepository products,
         IStockRepository stocks,
         IWarehouseRepository warehouses,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ILogger<ImportProductsCommandHandler> logger)
     {
         _products = products;
         _stocks = stocks;
         _warehouses = warehouses;
         _unitOfWork = unitOfWork;
+        _logger = logger;
     }
 
     public async Task<ImportResult> Handle(ImportProductsCommand request, CancellationToken cancellationToken)
@@ -215,12 +229,18 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                         string.Equals(n, "Inventaire", StringComparison.OrdinalIgnoreCase));
 
                     ms.Position = 0;
+                    // Query est paresseux : pas de ToList ici, pour pouvoir arrêter la lecture
+                    // dès que le plafond de lignes est dépassé sans charger tout le classeur.
                     var rows = mainSheetName != null
-                        ? MiniExcel.Query(ms, useHeaderRow: true, sheetName: mainSheetName, excelType: ExcelType.XLSX).ToList()
-                        : MiniExcel.Query(ms, useHeaderRow: true, excelType: ExcelType.XLSX).ToList();
+                        ? MiniExcel.Query(ms, useHeaderRow: true, sheetName: mainSheetName, excelType: ExcelType.XLSX)
+                        : MiniExcel.Query(ms, useHeaderRow: true, excelType: ExcelType.XLSX);
 
+                    var rowsRead = 0;
                     foreach (var row in rows)
                     {
+                        if (++rowsRead > MaxImportRows)
+                            return new ImportResult(0, 0, new List<string> { TooManyRowsMessage });
+
                         var rowDict = (IDictionary<string, object>)row;
 
                         var r = new CsvProductRecord
@@ -236,7 +256,8 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                             Annee = GetInt(rowDict, "Année", "Annee", "Year"),
                             PoidsCopieLb = GetDec(rowDict, "Poids/copie (lb)", "Poids", "Poids / copie (lb)"),
                             PoidsCopieG = GetDec(rowDict, "Poids/copie (g)", "Poids / copie (g)"),
-                            Location = GetVal(rowDict, "Localisation", "Location", "Entrepôt"),
+                            // Devient le nom d'un entrepôt (200 caractères en base).
+                            Location = Truncate(GetVal(rowDict, "Localisation", "Location", "Entrepôt"), 200),
                             Section = Truncate(GetVal(rowDict, "Section"), 50),
                             Espace = Truncate(GetVal(rowDict, "Espace"), 50),
                             PaletteCAF = Truncate(GetVal(rowDict, "Palette CAF", "Palette"), 50),
@@ -260,7 +281,10 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                 }
                 catch (Exception ex)
                 {
-                    return new ImportResult(0, 0, new List<string> { "Erreur de lecture du fichier Excel: " + ex.Message });
+                    // Le message brut de la bibliothèque peut exposer des détails internes :
+                    // il reste dans les journaux, le client reçoit un message générique.
+                    _logger.LogWarning(ex, "Lecture du classeur Excel importé impossible ({FileName}).", request.FileName);
+                    return new ImportResult(0, 0, new List<string> { "Le fichier Excel n'a pas pu être lu. Vérifiez son format." });
                 }
             }
             else
@@ -285,12 +309,21 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                 reader.DiscardBufferedData();
 
                 using var csv = new CsvReader(reader, config);
-                records = csv.GetRecords<CsvProductRecord>().ToList();
+                foreach (var record in csv.GetRecords<CsvProductRecord>())
+                {
+                    if (records.Count >= MaxImportRows)
+                        return new ImportResult(0, 0, new List<string> { TooManyRowsMessage });
+
+                    // Même borne que pour la feuille Excel (colonne Name de l'entrepôt).
+                    record.Location = Truncate(record.Location, 200);
+                    records.Add(record);
+                }
             }
         }
         catch (Exception ex)
         {
-            return new ImportResult(0, 0, new List<string> { $"Erreur de lecture du fichier: {ex.Message}" });
+            _logger.LogWarning(ex, "Lecture du fichier importé impossible ({FileName}).", request.FileName);
+            return new ImportResult(0, 0, new List<string> { "Le fichier n'a pas pu être lu. Vérifiez son format." });
         }
 
         var allWarehouses = (await _warehouses.ListAsync(1000, cancellationToken)).ToList();

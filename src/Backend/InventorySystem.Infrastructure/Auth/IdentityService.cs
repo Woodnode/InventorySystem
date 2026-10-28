@@ -9,6 +9,10 @@ namespace InventorySystem.Infrastructure.Auth;
 /// </summary>
 public sealed class IdentityService : IIdentityService
 {
+    // Hash d'un mot de passe aléatoire, calculé une fois avec le même hacheur que les vrais
+    // comptes : sert à la vérification factice d'une adresse inconnue (voir plus bas).
+    private static string? _dummyPasswordHash;
+
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
 
@@ -60,7 +64,13 @@ public sealed class IdentityService : IIdentityService
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user is null)
+        {
+            // Sans cette vérification factice, une adresse inconnue répondait en quelques
+            // millisecondes alors qu'un vrai compte paie le coût du hachage PBKDF2 : le délai
+            // révélait quelles adresses existent. On paie donc le même coût avant de refuser.
+            VerifyDummyPassword(password);
             return null;
+        }
 
         ct.ThrowIfCancellationRequested();
 
@@ -81,6 +91,13 @@ public sealed class IdentityService : IIdentityService
         await _userManager.ResetAccessFailedCountAsync(user);
 
         return await ToUserInfoAsync(user, ct);
+    }
+
+    private void VerifyDummyPassword(string password)
+    {
+        var dummyUser = new ApplicationUser();
+        _dummyPasswordHash ??= _userManager.PasswordHasher.HashPassword(dummyUser, Guid.NewGuid().ToString("N"));
+        _userManager.PasswordHasher.VerifyHashedPassword(dummyUser, _dummyPasswordHash, password);
     }
 
     public async Task<IdentityUserInfo?> FindByIdAsync(Guid userId, CancellationToken ct = default)

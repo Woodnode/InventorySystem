@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch: # permet de relancer manuellement depuis l'onglet Actions, sans nouveau commit
 
+# Moindre privilège : le jeton GITHUB_TOKEN ne sert ici qu'à lire le dépôt.
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend (build + tests)

@@ -154,11 +154,23 @@ public sealed class ExportService : IExportService
         _ => type.ToString(),
     };
 
+    // Caractères qui font interpréter une cellule comme une formule par Excel/LibreOffice
+    // (injection de formules CSV). Un nom de produit ou un motif saisi par un utilisateur
+    // commençant par "=" ne doit jamais devenir une formule exécutée chez celui qui ouvre l'export.
+    private static readonly char[] CsvInjectionCharacters = ['=', '+', '-', '@', '\t', '\r'];
+
     private static MemoryStream WriteCsv<T>(IEnumerable<T> records)
     {
+        var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            // Escape préfixe la valeur d'une apostrophe : la cellule reste du texte.
+            InjectionOptions = InjectionOptions.Escape,
+            InjectionCharacters = CsvInjectionCharacters,
+        };
+
         var stream = new MemoryStream();
         using (var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true))
-        using (var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)))
+        using (var csv = new CsvWriter(writer, config))
         {
             csv.WriteRecords(records);
         }

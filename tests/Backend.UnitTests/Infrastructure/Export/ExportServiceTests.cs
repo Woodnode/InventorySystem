@@ -72,4 +72,38 @@ public sealed class ExportServiceTests
 
         content.Should().Contain("Entrée"); // MovementType.In traduit, pas "In" brut
     }
+    [Theory]
+    [InlineData("=1+1")]
+    [InlineData("+1+1")]
+    [InlineData("-1+1")]
+    [InlineData("@SUM(A1)")]
+    public async Task ExportProductsAsync_Csv_EscapesFormulaInjection(string maliciousName)
+    {
+        // Non-régression : un nom saisi par un utilisateur ne doit jamais sortir tel quel en
+        // tête de cellule, sinon le tableur qui ouvre l'export l'exécute comme une formule.
+        var product = NewProduct("SKU-1", lowOnStock: false) with { Name = maliciousName };
+
+        var file = await _sut.ExportProductsAsync(new[] { product }, ExportFormat.Csv);
+
+        using var reader = new StreamReader(file.Content);
+        var content = await reader.ReadToEndAsync();
+
+        content.Should().Contain("'" + maliciousName);
+        content.Split(',').Should().NotContain(maliciousName);
+    }
+
+    [Fact]
+    public async Task ExportMovementsAsync_Csv_EscapesFormulaInjectionInReason()
+    {
+        var movement = new MovementExportRow(
+            Guid.NewGuid(), "SKU-1", "Produit 1", "Entrepôt A", null,
+            MovementType.In, 5, "=HYPERLINK(\"http://exemple.invalid\")", DateTime.UtcNow);
+
+        var file = await _sut.ExportMovementsAsync(new[] { movement }, ExportFormat.Csv);
+
+        using var reader = new StreamReader(file.Content);
+        var content = await reader.ReadToEndAsync();
+
+        content.Should().Contain("'=HYPERLINK");
+    }
 }

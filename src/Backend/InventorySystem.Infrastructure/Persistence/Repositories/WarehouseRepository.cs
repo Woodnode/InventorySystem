@@ -16,6 +16,9 @@ public sealed class WarehouseRepository : IWarehouseRepository
     public Task<bool> ExistsAsync(Guid id, CancellationToken ct = default)
         => _db.Warehouses.AnyAsync(w => w.Id == id, ct);
 
+    public Task<bool> IsActiveAsync(Guid id, CancellationToken ct = default)
+        => _db.Warehouses.AnyAsync(w => w.Id == id && w.IsActive, ct);
+
     public async Task<IReadOnlyList<Warehouse>> ListAsync(int maxRows, CancellationToken ct = default)
         => await _db.Warehouses.AsNoTracking()
             .OrderBy(w => w.Name)

@@ -91,7 +91,18 @@ public sealed class Stock : BaseEntity
         if (amount <= 0)
             throw new InvalidMovementException("La quantité d'une entrée doit être positive.");
 
-        Quantity += amount;
+        // Arithmétique vérifiée : sans checked, une entrée assez grande faisait passer le
+        // stock à une valeur négative (dépassement de int.MaxValue) sans aucune erreur.
+        try
+        {
+            Quantity = checked(Quantity + amount);
+        }
+        catch (OverflowException)
+        {
+            throw new InvalidMovementException("Cette entrée dépasse la quantité maximale de stock.");
+        }
+
+
         Touch();
     }
 

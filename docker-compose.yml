@@ -11,7 +11,9 @@ services:
       # Port publie sur la machine hote. 5432 est souvent deja pris par un autre
       # projet : POSTGRES_PORT permet de le deplacer sans toucher au compose.
       # Le port interne reste 5432 — c'est celui que l'API utilise dans le reseau Docker.
-      - "${POSTGRES_PORT:-5433}:5432"
+      # Lie a 127.0.0.1 : la base n'est joignable que depuis cette machine, pas depuis
+      # le reseau local (sinon Docker publie sur toutes les interfaces).
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -21,14 +23,15 @@ services:
       retries: 5
 
   pgadmin:
-    image: dpage/pgadmin4:latest
+    # Version epinglee : "latest" changeait de version a chaque pull, sans controle.
+    image: dpage/pgadmin4:9.18
     container_name: inventory-pgadmin
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@inventory.local
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?La variable PGADMIN_PASSWORD est manquante, copie .env.example vers .env et renseigne-la.}
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
       - postgres
 
@@ -43,8 +46,13 @@ services:
       # Jamais commité — voir .env.example. En local (hors Docker), la même clé vient
       # de `dotnet user-secrets` (voir InventorySystem.Api.csproj).
       Jwt__Key: ${JWT_KEY:?La variable JWT_KEY est manquante — copie .env.example vers .env et renseigne-la (voir README).}
+      # appsettings.Development.json active les comptes de demonstration et l'inscription
+      # libre. Cette base locale peut contenir des donnees reelles : on neutralise les deux
+      # ici (une valeur vide suffit, DemoUserSeeder ne cree alors aucun compte).
+      Seed__DemoPassword: ""
+      Registration__PublicEnabled: "false"
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
