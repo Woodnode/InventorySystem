@@ -9,6 +9,7 @@ using DocumentFormat.OpenXml.Spreadsheet;
 using CsvHelper.Configuration.Attributes;
 using InventorySystem.Domain.Entities;
 using InventorySystem.Domain.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace InventorySystem.Application.Products.Commands;
 
@@ -144,17 +145,20 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
     private readonly IStockRepository _stocks;
     private readonly IWarehouseRepository _warehouses;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<ImportProductsCommandHandler> _logger;
 
     public ImportProductsCommandHandler(
         IProductRepository products,
         IStockRepository stocks,
         IWarehouseRepository warehouses,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ILogger<ImportProductsCommandHandler> logger)
     {
         _products = products;
         _stocks = stocks;
         _warehouses = warehouses;
         _unitOfWork = unitOfWork;
+        _logger = logger;
     }
 
     public async Task<ImportResult> Handle(ImportProductsCommand request, CancellationToken cancellationToken)
@@ -251,6 +255,8 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                         string.Equals(n, "Inventaire", StringComparison.OrdinalIgnoreCase));
 
                     ms.Position = 0;
+                    // Query est paresseux : Take arrête la lecture juste après le plafond de lignes,
+                    // sans charger tout le classeur.
                     var rows = mainSheetName != null
                         ? MiniExcel.Query(ms, useHeaderRow: true, sheetName: mainSheetName, excelType: ExcelType.XLSX).Take(ImportLimits.MaxRows + 1).ToList()
                         : MiniExcel.Query(ms, useHeaderRow: true, excelType: ExcelType.XLSX).Take(ImportLimits.MaxRows + 1).ToList();
@@ -274,7 +280,8 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                             Annee = GetInt(rowDict, "Année", "Annee", "Year"),
                             PoidsCopieLb = GetDec(rowDict, "Poids/copie (lb)", "Poids", "Poids / copie (lb)"),
                             PoidsCopieG = GetDec(rowDict, "Poids/copie (g)", "Poids / copie (g)"),
-                            Location = GetVal(rowDict, "Localisation", "Location", "Entrepôt"),
+                            // Devient le nom d'un entrepôt (200 caractères en base).
+                            Location = Truncate(GetVal(rowDict, "Localisation", "Location", "Entrepôt"), 200),
                             Section = Truncate(GetVal(rowDict, "Section"), 50),
                             Espace = Truncate(GetVal(rowDict, "Espace"), 50),
                             PaletteCAF = Truncate(GetVal(rowDict, "Palette CAF", "Palette"), 50),
@@ -298,7 +305,10 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                 }
                 catch (Exception ex)
                 {
-                    return new ImportResult(0, 0, new List<string> { "Erreur de lecture du fichier Excel: " + ex.Message });
+                    // Le message brut de la bibliothèque peut exposer des détails internes :
+                    // il reste dans les journaux, le client reçoit un message générique.
+                    _logger.LogWarning(ex, "Lecture du classeur Excel importé impossible ({FileName}).", request.FileName);
+                    return new ImportResult(0, 0, new List<string> { "Le fichier Excel n'a pas pu être lu. Vérifiez son format." });
                 }
             }
             else
@@ -326,11 +336,16 @@ public sealed class ImportProductsCommandHandler : IRequestHandler<ImportProduct
                 records = csv.GetRecords<CsvProductRecord>().Take(ImportLimits.MaxRows + 1).ToList();
                 if (records.Count > ImportLimits.MaxRows)
                     return ImportLimits.TooLarge($"Trop de lignes : {ImportLimits.MaxRows} au plus par import.");
+
+                // Même borne que pour la feuille Excel (colonne Name de l'entrepôt).
+                foreach (var record in records)
+                    record.Location = Truncate(record.Location, 200);
             }
         }
         catch (Exception ex)
         {
-            return new ImportResult(0, 0, new List<string> { $"Erreur de lecture du fichier: {ex.Message}" });
+            _logger.LogWarning(ex, "Lecture du fichier importé impossible ({FileName}).", request.FileName);
+            return new ImportResult(0, 0, new List<string> { "Le fichier n'a pas pu être lu. Vérifiez son format." });
         }
 
         var allWarehouses = (await _warehouses.ListAsync(1000, cancellationToken)).ToList();

@@ -24,6 +24,12 @@ public sealed record RecordMovementCommand(
 
 public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMovementCommand>
 {
+    /// <summary>
+    /// Borne métier d'un seul mouvement. Aucune réception réelle n'approche ce volume ; au-delà,
+    /// c'est une erreur de saisie (ou une tentative de faire déborder le stock).
+    /// </summary>
+    public const int MaxQuantityPerMovement = 1_000_000;
+
     public RecordMovementCommandValidator(IProductRepository products, IWarehouseRepository warehouses)
     {
         RuleFor(x => x.ProductId).NotEmpty()
@@ -31,19 +37,19 @@ public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMov
             .WithMessage("Produit introuvable.");
 
         RuleFor(x => x.Type).IsInEnum();
-        RuleFor(x => x.Quantity).GreaterThan(0);
+        RuleFor(x => x.Quantity).GreaterThan(0).LessThanOrEqualTo(MaxQuantityPerMovement);
         RuleFor(x => x.Reason).MaximumLength(500);
-
-        RuleFor(x => x.WarehouseId)
-            .MustAsync((id, ct) => warehouses.ExistsAsync(id, ct))
-            .WithMessage("L'entrepôt source n'existe pas.");
 
         // Un entrepôt désactivé ne reçoit plus de stock, mais peut encore être vidé : les
         // sorties et les transferts depuis lui restent permis (y compris ceux saisis hors
-        // ligne avant sa fermeture).
+        // ligne avant sa fermeture). Cascade Stop : un entrepôt inconnu n'affiche que le
+        // message d'existence.
         RuleFor(x => x.WarehouseId)
-            .MustAsync(async (id, ct) => (await warehouses.GetByIdAsync(id, ct))?.IsActive != false)
-            .When(x => x.Type == MovementType.In)
+            .Cascade(CascadeMode.Stop)
+            .MustAsync((id, ct) => warehouses.ExistsAsync(id, ct))
+            .WithMessage("L'entrepôt source n'existe pas.")
+            .MustAsync((id, ct) => warehouses.IsActiveAsync(id, ct))
+            .When(x => x.Type == MovementType.In, ApplyConditionTo.CurrentValidator)
             .WithMessage("L'entrepôt est désactivé : il ne peut plus recevoir de stock.");
 
         RuleFor(x => x.ToWarehouseId)
@@ -55,14 +61,12 @@ public sealed class RecordMovementCommandValidator : AbstractValidator<RecordMov
             .When(x => x.Type != MovementType.Transfer);
 
         RuleFor(x => x.ToWarehouseId)
+            .Cascade(CascadeMode.Stop)
             .MustAsync((id, ct) => warehouses.ExistsAsync(id!.Value, ct))
-            .When(x => x.Type == MovementType.Transfer && x.ToWarehouseId is not null)
-            .WithMessage("L'entrepôt de destination n'existe pas.");
-
-        RuleFor(x => x.ToWarehouseId)
-            .MustAsync(async (id, ct) => (await warehouses.GetByIdAsync(id!.Value, ct))?.IsActive != false)
-            .When(x => x.Type == MovementType.Transfer && x.ToWarehouseId is not null)
-            .WithMessage("L'entrepôt de destination est désactivé : il ne peut plus recevoir de stock.");
+            .WithMessage("L'entrepôt de destination n'existe pas.")
+            .MustAsync((id, ct) => warehouses.IsActiveAsync(id!.Value, ct))
+            .WithMessage("L'entrepôt de destination est désactivé : il ne peut plus recevoir de stock.")
+            .When(x => x.Type == MovementType.Transfer && x.ToWarehouseId is not null);
 
         RuleFor(x => x)
             .Must(x => x.ToWarehouseId != x.WarehouseId)

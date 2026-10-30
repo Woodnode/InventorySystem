@@ -7,6 +7,9 @@ public interface IWarehouseRepository
     Task<Warehouse?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<bool> ExistsAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>Vrai seulement si l'entrepôt existe ET est actif.</summary>
+    Task<bool> IsActiveAsync(Guid id, CancellationToken ct = default);
+
     /// <summary>Liste bornée (référentiel — plafond <paramref name="maxRows"/>).</summary>
     Task<IReadOnlyList<Warehouse>> ListAsync(int maxRows, CancellationToken ct = default);
 

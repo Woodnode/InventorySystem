@@ -212,4 +212,44 @@ public sealed class InventoryEndpointsTests
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task RecordMovement_OnDeactivatedWarehouse_ReturnsBadRequestAndLeavesStockUnchanged()
+    {
+        // Non-régression de l'audit : un entrepôt désactivé ne doit plus recevoir de stock.
+        var token = await GetAdminTokenAsync();
+        var warehouseId = await CreateWarehouseAsync(token);
+        var productId = await CreateProductAsync(token, warehouseId, initialQuantity: 10);
+
+        using (var deactivate = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/warehouses/{warehouseId}/active")
+        {
+            Content = JsonContent.Create(new { isActive = false }),
+        })
+        {
+            Authorize(deactivate, token);
+            var deactivateResponse = await _client.SendAsync(deactivate);
+            deactivateResponse.IsSuccessStatusCode.Should().BeTrue();
+        }
+
+        var response = await RecordMovementAsync(token, productId, warehouseId, MovementType.In, 5);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var stocks = await GetStockAsync(token, productId);
+        stocks.Single(s => s.WarehouseId == warehouseId).Quantity.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task RecordMovement_WithQuantityAboveBusinessLimit_ReturnsBadRequest()
+    {
+        var token = await GetAdminTokenAsync();
+        var warehouseId = await CreateWarehouseAsync(token);
+        var productId = await CreateProductAsync(token, warehouseId, initialQuantity: 10);
+
+        var response = await RecordMovementAsync(
+            token, productId, warehouseId, MovementType.In, int.MaxValue);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var stocks = await GetStockAsync(token, productId);
+        stocks.Single(s => s.WarehouseId == warehouseId).Quantity.Should().Be(10);
+    }
 }

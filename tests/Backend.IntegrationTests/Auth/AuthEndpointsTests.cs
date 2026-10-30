@@ -151,6 +151,31 @@ public sealed class AuthEndpointsTests
     }
 
     [Fact]
+    public async Task Refresh_ReplayInGraceWindowAfterLogout_ReturnsUnauthorized()
+    {
+        // Non-régression de l'audit : la déconnexion vide aussi le cache de rotation de la
+        // famille. Avant, rejouer un jeton consommé dans les 30s suivant le logout renvoyait
+        // encore le couple de jetons mis en cache.
+        var email = UniqueEmail();
+        var registerResponse = await RegisterAsync(email);
+        var original = await registerResponse.Content.ReadFromJsonAsync<AuthResultDto>();
+
+        var rotated = await _client.PostAsJsonAsync(
+            "/api/v1/auth/refresh", new RefreshTokenCommand(original!.RefreshToken));
+        rotated.StatusCode.Should().Be(HttpStatusCode.OK);
+        var current = await rotated.Content.ReadFromJsonAsync<AuthResultDto>();
+
+        var logout = await _client.PostAsJsonAsync(
+            "/api/v1/auth/logout", new RefreshTokenCommand(current!.RefreshToken));
+        logout.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var replay = await _client.PostAsJsonAsync(
+            "/api/v1/auth/refresh", new RefreshTokenCommand(original.RefreshToken));
+
+        replay.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task Refresh_WithGarbageToken_ReturnsUnauthorized()
     {
         var response = await _client.PostAsJsonAsync(

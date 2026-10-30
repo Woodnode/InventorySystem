@@ -3,6 +3,7 @@ using System.Text;
 using FluentAssertions;
 using InventorySystem.Application.Common.Interfaces;
 using InventorySystem.Application.Products.Commands;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -20,7 +21,8 @@ public sealed class ImportLimitsTests
     private readonly Mock<IUnitOfWork> _unitOfWork = new(MockBehavior.Strict);
 
     private ImportProductsCommandHandler Handler() =>
-        new(_products.Object, _stocks.Object, _warehouses.Object, _unitOfWork.Object);
+        new(_products.Object, _stocks.Object, _warehouses.Object, _unitOfWork.Object,
+            NullLogger<ImportProductsCommandHandler>.Instance);
 
     [Fact]
     public async Task EtantDonneCsvTropLong_QuandImporter_AlorsRefuseSansToucherALaBase()

@@ -13,8 +13,13 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
     private static readonly TimeSpan ConcurrentGrace = TimeSpan.FromSeconds(30);
 
     private readonly AppDbContext _db;
+    private readonly IRefreshRotationCache _rotationCache;
 
-    public RefreshTokenRepository(AppDbContext db) => _db = db;
+    public RefreshTokenRepository(AppDbContext db, IRefreshRotationCache rotationCache)
+    {
+        _db = db;
+        _rotationCache = rotationCache;
+    }
 
     public async Task StoreAsync(
         Guid userId,
@@ -97,6 +102,20 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
             return;
 
         var now = DateTime.UtcNow;
+
+        // Les jetons de la famille consommés depuis moins de ConcurrentGrace peuvent encore
+        // avoir une rotation en cache : sans ce nettoyage, rejouer l'un d'eux juste après la
+        // déconnexion renvoyait le couple de jetons mis en cache, comme si de rien n'était.
+        var graceStart = now - ConcurrentGrace;
+        var recentlyConsumed = await _db.RefreshTokens
+            .AsNoTracking()
+            .Where(t => t.FamilyId == familyId && t.RevokedAtUtc != null && t.RevokedAtUtc >= graceStart)
+            .Select(t => t.TokenHash)
+            .ToListAsync(ct);
+
+        foreach (var consumedHash in recentlyConsumed)
+            _rotationCache.Remove(consumedHash);
+
         await _db.RefreshTokens
             .Where(t => t.FamilyId == familyId && t.RevokedAtUtc == null)
             .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAtUtc, now), ct);

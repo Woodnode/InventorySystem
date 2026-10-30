@@ -92,6 +92,7 @@ internal sealed class FauxEntrepots : IWarehouseRepository
 
     public Task<Warehouse?> GetByIdAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<bool> ExistsAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> IsActiveAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<IReadOnlyList<Warehouse>> ListByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct = default) => throw new NotSupportedException();
     public void Update(Warehouse warehouse) => throw new NotSupportedException();
 }
